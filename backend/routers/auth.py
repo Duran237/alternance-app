@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,7 @@ from services.email_service import send_otp_email, send_welcome_email
 from services.otp_service import generate_otp, verify_otp
 from utils.security import hash_password, verify_password, create_access_token
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -62,8 +64,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     try:
         otp = generate_otp(user.email)
         send_otp_email(to_email=user.email, user_name=user.name, otp_code=otp)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"[Auth] Erreur envoi OTP register : {e}")
 
     return TokenResponse(
         access_token=token,
@@ -137,8 +139,8 @@ async def forgot_password(data: VerifyOtpRequest, db: AsyncSession = Depends(get
         try:
             otp = generate_otp(user.email)
             send_otp_email(to_email=user.email, user_name=user.name, otp_code=otp)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[Auth] Erreur envoi OTP forgot-password : {e}")
     return {"message": "Si cet email existe, un code a été envoyé"}
 
 
