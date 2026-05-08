@@ -105,6 +105,13 @@ export default function VerifyEmail() {
           <RefreshCw size={13} />
           {resent ? 'Code renvoyé !' : 'Renvoyer le code'}
         </button>
+
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="text-sm text-gray-400 hover:text-gray-600 mt-4 block mx-auto transition-colors"
+        >
+          Passer pour l'instant
+        </button>
       </div>
     </div>
   )
