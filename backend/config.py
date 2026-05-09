@@ -14,10 +14,12 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://") or url.startswith("postgres://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-            if "?" not in url:
-                url += "?ssl=require"
             return url
         return url
+
+    @property
+    def is_postgres(self) -> bool:
+        return self.DATABASE_URL.startswith("postgresql") or self.DATABASE_URL.startswith("postgres")
     UPLOAD_DIR: str = "./uploads"
     ANTHROPIC_API_KEY: str = ""
     SMTP_USER: str = ""
