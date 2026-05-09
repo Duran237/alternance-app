@@ -89,6 +89,13 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
             job_title=job.title,
             company=job.company,
             job_description=job.description or "",
+            cv_text=user.cv_text or "",
+            target_roles=user.target_roles or [],
+            target_city=user.target_city or "",
+            github_url=user.github_url or "",
+            linkedin_url=user.linkedin_url or "",
+            school=user.school or "",
+            education_level=user.education_level or "",
         )
 
         draft = Application(

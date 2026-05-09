@@ -56,7 +56,20 @@ Réponds uniquement avec le JSON valide, sans markdown."""
         return {"raw": message.content[0].text}
 
 
-async def generate_cover_letter(user_name: str, user_skills: list, job_title: str, company: str, job_description: str) -> str:
+async def generate_cover_letter(
+    user_name: str,
+    user_skills: list,
+    job_title: str,
+    company: str,
+    job_description: str,
+    cv_text: str = "",
+    target_roles: list = None,
+    target_city: str = "",
+    github_url: str = "",
+    linkedin_url: str = "",
+    school: str = "",
+    education_level: str = "",
+) -> str:
     """Generate a personalized cover letter."""
     if not _has_api_key():
         skills_str = ", ".join(user_skills[:5]) if user_skills else "Python, Linux, cybersécurité"
@@ -76,15 +89,43 @@ Cordialement,
     import anthropic
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
-    prompt = f"""Génère une lettre de motivation professionnelle en français pour :
-- Candidat : {user_name}
-- Compétences : {", ".join(user_skills[:8])}
+    profile_parts = [
+        f"- Nom : {user_name}",
+        f"- Compétences : {', '.join(user_skills[:10]) if user_skills else 'non renseignées'}",
+    ]
+    if school:
+        profile_parts.append(f"- École / Établissement : {school}")
+    if education_level:
+        profile_parts.append(f"- Niveau d'études : {education_level}")
+    if target_roles:
+        profile_parts.append(f"- Postes visés : {', '.join(target_roles[:3])}")
+    if target_city:
+        profile_parts.append(f"- Ville cible : {target_city}")
+    if github_url:
+        profile_parts.append(f"- GitHub : {github_url}")
+    if linkedin_url:
+        profile_parts.append(f"- LinkedIn : {linkedin_url}")
+    if cv_text:
+        profile_parts.append(f"\nExtrait du CV :\n{cv_text[:1500]}")
+
+    profile_section = "\n".join(profile_parts)
+
+    prompt = f"""Génère une lettre de motivation professionnelle en français pour une candidature en alternance.
+
+Profil du candidat :
+{profile_section}
+
+Offre :
 - Poste : {job_title}
 - Entreprise : {company}
-- Description du poste : {job_description[:800]}
+- Description : {job_description[:600]}
 
-La lettre doit faire 3 paragraphes, être personnalisée et convaincante. Ne mets pas de date ni d'adresse.
-IMPORTANT : Réponds en texte brut uniquement. N'utilise aucun markdown (pas de #, **, *, _, etc.)."""
+Instructions :
+- 3 paragraphes percutants et personnalisés
+- Utilise les éléments concrets du CV et du profil
+- Montre pourquoi ce candidat est fait pour ce poste précis
+- Ne mets pas de date, adresse ou objet
+- IMPORTANT : texte brut uniquement, aucun markdown"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",

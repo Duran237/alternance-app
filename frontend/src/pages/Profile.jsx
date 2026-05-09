@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi, cvApi } from '../services/api'
-import { User, Upload, Github, Linkedin, MapPin, Zap, CheckCircle, AlertCircle, X } from 'lucide-react'
+import { User, Upload, Github, Linkedin, MapPin, Zap, CheckCircle, AlertCircle, X, GraduationCap } from 'lucide-react'
 
 function SkillTag({ skill, onRemove }) {
   return (
@@ -28,6 +28,8 @@ export default function Profile() {
     defaultValues: {
       name: user?.name || '',
       phone: user?.phone || '',
+      school: user?.school || '',
+      education_level: user?.education_level || '',
       github_url: user?.github_url || '',
       linkedin_url: user?.linkedin_url || '',
       target_city: user?.target_city || '',
@@ -141,13 +143,34 @@ export default function Profile() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <GraduationCap size={14} className="inline mr-1" />
+                  École / Établissement
+                </label>
+                <input className="input-field" placeholder="Ex: ESIEA, Université Paris-Saclay..." {...register('school')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <GraduationCap size={14} className="inline mr-1" />
+                  Niveau d'études
+                </label>
+                <select className="input-field" {...register('education_level')}>
+                  <option value="">Sélectionner...</option>
+                  <option value="Bac+1">Bac+1</option>
+                  <option value="Bac+2 (BTS / BUT)">Bac+2 (BTS / BUT)</option>
+                  <option value="Bac+3 (Licence / Bachelor)">Bac+3 (Licence / Bachelor)</option>
+                  <option value="Bac+4 (Master 1 / Ingénieur 3ème année)">Bac+4 (Master 1 / Ingénieur 3ème année)</option>
+                  <option value="Bac+5 (Master 2 / Ingénieur)">Bac+5 (Master 2 / Ingénieur)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   <MapPin size={14} className="inline mr-1" />
                   Ville cible
                 </label>
                 <input className="input-field" placeholder="Paris, Lyon..." {...register('target_city')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Salaire souhaité</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Salaire souhaité (alternance)</label>
                 <input className="input-field" placeholder="Ex: 900€/mois" {...register('target_salary')} />
               </div>
               <div>

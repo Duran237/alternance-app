@@ -111,6 +111,13 @@ async def create_application(
             job_title=job.title,
             company=job.company,
             job_description=job.description or "",
+            cv_text=current_user.cv_text or "",
+            target_roles=current_user.target_roles or [],
+            target_city=current_user.target_city or "",
+            github_url=current_user.github_url or "",
+            linkedin_url=current_user.linkedin_url or "",
+            school=current_user.school or "",
+            education_level=current_user.education_level or "",
         )
 
     # Chercher l'email du recruteur
@@ -284,6 +291,13 @@ async def regenerate_cover_letter(
         job_title=app.job.title,
         company=app.job.company,
         job_description=app.job.description or "",
+        cv_text=current_user.cv_text or "",
+        target_roles=current_user.target_roles or [],
+        target_city=current_user.target_city or "",
+        github_url=current_user.github_url or "",
+        linkedin_url=current_user.linkedin_url or "",
+        school=current_user.school or "",
+        education_level=current_user.education_level or "",
     )
     app.cover_letter = letter
     db.add(app)
