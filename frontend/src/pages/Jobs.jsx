@@ -256,13 +256,13 @@ export default function Jobs() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {modalApp && (
         <CoverLetterModal application={modalApp} onClose={() => setModalApp(null)} />
       )}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Offres d'alternance</h1>
-        <p className="text-gray-500 mt-1">Recherche en temps réel sur {ALL_SOURCES.join(', ')}</p>
+        <p className="text-gray-500 mt-1 text-sm">Recherche en temps réel sur {ALL_SOURCES.length} sources</p>
       </div>
 
       {successMsg && (

@@ -10,7 +10,7 @@ const navItems = [
   { to: '/jobs', icon: Search, label: 'Offres' },
   { to: '/applications', icon: Briefcase, label: 'Candidatures' },
   { to: '/automation', icon: Moon, label: 'Mode nuit' },
-  { to: '/stats', icon: BarChart2, label: 'Statistiques' },
+  { to: '/stats', icon: BarChart2, label: 'Stats' },
   { to: '/profile', icon: User, label: 'Profil' },
 ]
 
@@ -25,8 +25,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full z-10">
+      {/* Sidebar desktop */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col fixed h-full z-10">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -80,9 +80,28 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-64 min-h-screen">
+      <main className="flex-1 md:ml-64 min-h-screen pb-20 md:pb-0">
         <Outlet />
       </main>
+
+      {/* Bottom nav mobile */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 flex">
+        {navItems.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              clsx(
+                'flex-1 flex flex-col items-center justify-center py-2 text-xs font-medium transition-colors',
+                isActive ? 'text-blue-600' : 'text-gray-500'
+              )
+            }
+          >
+            <Icon size={20} />
+            <span className="mt-0.5">{label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }
