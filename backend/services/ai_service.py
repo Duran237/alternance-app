@@ -77,18 +77,30 @@ async def generate_cover_letter(
         school_line = f" à {school}" if school else ""
         if gender == "homme":
             student_word = "Étudiant"
+            passionne = "Passionné"
+            convaincu = "convaincu"
+            motive = "Motivé"
+            curieux = "curieux"
         elif gender == "femme":
             student_word = "Étudiante"
+            passionne = "Passionnée"
+            convaincu = "convaincue"
+            motive = "Motivée"
+            curieux = "curieuse"
         else:
             student_word = "Étudiant(e)"
+            passionne = "Passionné(e)"
+            convaincu = "convaincu(e)"
+            motive = "Motivé(e)"
+            curieux = "curieux(se)"
         edu_line = f"{student_word} en {education_level}" if education_level else student_word
         return f"""Madame, Monsieur,
 
 {edu_line}{school_line}, je me permets de vous soumettre ma candidature pour le poste de {job_title} au sein de {company} dans le cadre d'une alternance.
 
-Passionné(e) par l'informatique et les nouvelles technologies, je dispose de compétences en {skills_str}. Mon parcours académique et mes projets personnels m'ont permis de développer une expertise technique solide et un sens de la rigueur indispensable dans ce domaine.
+{passionne} par l'informatique et les nouvelles technologies, je dispose de compétences en {skills_str}. Mon parcours académique et mes projets personnels m'ont permis de développer une expertise technique solide et un sens de la rigueur indispensable dans ce domaine.
 
-Je suis convaincu(e) que {company} représente un environnement stimulant pour développer mes compétences et contribuer à vos projets. Motivé(e) et curieux(se), je m'engage à apporter mon implication totale à votre équipe.
+Je suis {convaincu} que {company} représente un environnement stimulant pour développer mes compétences et contribuer à vos projets. {motive} et {curieux}, je m'engage à apporter mon implication totale à votre équipe.
 
 Dans l'attente d'un entretien, je reste disponible pour tout renseignement complémentaire.
 
