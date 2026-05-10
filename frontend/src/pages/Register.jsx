@@ -16,7 +16,7 @@ export default function Register() {
     setLoading(true)
     try {
       await signup(name, email, password)
-      navigate('/verify-email', { state: { email } })
+      navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur lors de la création du compte')
     } finally {

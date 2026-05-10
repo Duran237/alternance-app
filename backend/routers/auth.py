@@ -61,6 +61,7 @@ async def register(data: RegisterRequest, background_tasks: BackgroundTasks, db:
         password_hash=hash_password(data.password),
         skills=[],
         target_roles=[],
+        is_email_verified=1,
     )
     db.add(user)
     await db.commit()
@@ -68,15 +69,12 @@ async def register(data: RegisterRequest, background_tasks: BackgroundTasks, db:
 
     token = create_access_token({"sub": str(user.id)})
 
-    # Envoi OTP en arrière-plan pour ne pas bloquer la réponse
-    background_tasks.add_task(_send_otp_background, user.email, user.name)
-
     return TokenResponse(
         access_token=token,
         user_id=user.id,
         name=user.name,
         email=user.email,
-        is_email_verified=False,
+        is_email_verified=True,
     )
 
 
