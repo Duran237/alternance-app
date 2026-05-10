@@ -38,6 +38,7 @@ def _send(msg) -> bool:
 
 def send_otp_email(to_email: str, user_name: str, otp_code: str) -> bool:
     if not _can_send():
+        logger.warning(f"[Email] SMTP non configuré (SMTP_USER={bool(settings.SMTP_USER)}, SMTP_PASSWORD={bool(settings.SMTP_PASSWORD)}) — OTP non envoyé à {to_email}")
         return False
     html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
