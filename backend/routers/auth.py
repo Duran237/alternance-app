@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -41,8 +41,16 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+def _send_otp_background(email: str, name: str):
+    try:
+        otp = generate_otp(email)
+        send_otp_email(to_email=email, user_name=name, otp_code=otp)
+    except Exception as e:
+        logger.error(f"[Auth] Erreur envoi OTP : {e}")
+
+
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(data: RegisterRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email déjà utilisé")
@@ -60,12 +68,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     token = create_access_token({"sub": str(user.id)})
 
-    # Envoi OTP de vérification
-    try:
-        otp = generate_otp(user.email)
-        send_otp_email(to_email=user.email, user_name=user.name, otp_code=otp)
-    except Exception as e:
-        logger.error(f"[Auth] Erreur envoi OTP register : {e}")
+    # Envoi OTP en arrière-plan pour ne pas bloquer la réponse
+    background_tasks.add_task(_send_otp_background, user.email, user.name)
 
     return TokenResponse(
         access_token=token,
@@ -117,16 +121,12 @@ async def verify_email(data: VerifyOtpRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/resend-otp")
-async def resend_otp(data: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
+async def resend_otp(data: VerifyOtpRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-    try:
-        otp = generate_otp(user.email)
-        send_otp_email(to_email=user.email, user_name=user.name, otp_code=otp)
-    except Exception:
-        pass
+    background_tasks.add_task(_send_otp_background, user.email, user.name)
     return {"message": "Code renvoyé"}
 
 
