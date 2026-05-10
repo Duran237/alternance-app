@@ -21,3 +21,18 @@ async def init_db():
     from models import user, job, application, notification  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Ajout des colonnes manquantes sans casser les données existantes
+        new_columns = [
+            ("users", "gender", "VARCHAR"),
+            ("users", "school", "VARCHAR"),
+            ("users", "education_level", "VARCHAR"),
+        ]
+        for table, column, col_type in new_columns:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"
+                    )
+                )
+            except Exception:
+                pass
