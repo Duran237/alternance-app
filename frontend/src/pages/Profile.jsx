@@ -38,6 +38,7 @@ export default function Profile() {
     defaultValues: {
       name: user?.name || '',
       phone: user?.phone || '',
+      gender: user?.gender || '',
       school: user?.school || '',
       education_level: user?.education_level || '',
       github_url: user?.github_url || '',
@@ -160,6 +161,14 @@ export default function Profile() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
                 <input className="input-field" placeholder="06 12 34 56 78" {...register('phone')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
+                <select className="input-field" {...register('gender')}>
+                  <option value="">Non précisé</option>
+                  <option value="homme">Homme</option>
+                  <option value="femme">Femme</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

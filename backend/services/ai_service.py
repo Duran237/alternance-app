@@ -69,12 +69,19 @@ async def generate_cover_letter(
     linkedin_url: str = "",
     school: str = "",
     education_level: str = "",
+    gender: str = "",
 ) -> str:
     """Generate a personalized cover letter."""
     if not _has_api_key():
         skills_str = ", ".join(user_skills[:5]) if user_skills else "Python, Linux, cybersécurité"
         school_line = f" à {school}" if school else ""
-        edu_line = f"En {education_level}" if education_level else "Étudiant(e)"
+        if gender == "homme":
+            student_word = "Étudiant"
+        elif gender == "femme":
+            student_word = "Étudiante"
+        else:
+            student_word = "Étudiant(e)"
+        edu_line = f"{student_word} en {education_level}" if education_level else student_word
         return f"""Madame, Monsieur,
 
 {edu_line}{school_line}, je me permets de vous soumettre ma candidature pour le poste de {job_title} au sein de {company} dans le cadre d'une alternance.
@@ -91,8 +98,10 @@ Cordialement,
     import anthropic
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
+    gender_label = {"homme": "Homme", "femme": "Femme"}.get(gender, "Non précisé")
     profile_parts = [
         f"- Nom : {user_name}",
+        f"- Genre : {gender_label}",
         f"- Compétences : {', '.join(user_skills[:10]) if user_skills else 'non renseignées'}",
     ]
     if school:
@@ -112,7 +121,20 @@ Cordialement,
 
     profile_section = "\n".join(profile_parts)
 
-    school_instruction = f"- Mentionne obligatoirement l'établissement ({school}) et le niveau d'études ({education_level}) dès le premier paragraphe" if school or education_level else ""
+    genre_instruction = ""
+    if gender == "homme":
+        genre_instruction = "- Le candidat est un homme : utilise les accords masculins (ex: motivé, passionné, diplômé)"
+    elif gender == "femme":
+        genre_instruction = "- La candidate est une femme : utilise les accords féminins (ex: motivée, passionnée, diplômée)"
+
+    school_instruction = ""
+    if school or education_level:
+        parts = []
+        if education_level:
+            parts.append(education_level)
+        if school:
+            parts.append(f"à {school}")
+        school_instruction = f"- Mentionne obligatoirement dans le premier paragraphe : {' '.join(parts)}"
 
     prompt = f"""Génère une lettre de motivation professionnelle en français pour une candidature en alternance.
 
@@ -129,6 +151,7 @@ Instructions :
 - Utilise les éléments concrets du CV et du profil
 - Montre pourquoi ce candidat est fait pour ce poste précis
 {school_instruction}
+{genre_instruction}
 - Ne mets pas de date, adresse ou objet
 - IMPORTANT : texte brut uniquement, aucun markdown"""
 

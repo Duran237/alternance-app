@@ -14,6 +14,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
+    gender = Column(String, nullable=True)
     school = Column(String, nullable=True)
     education_level = Column(String, nullable=True)
     skills = Column(JSON, default=list)

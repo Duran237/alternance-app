@@ -118,6 +118,7 @@ async def create_application(
             linkedin_url=current_user.linkedin_url or "",
             school=current_user.school or "",
             education_level=current_user.education_level or "",
+            gender=current_user.gender or "",
         )
 
     # Chercher l'email du recruteur
@@ -298,6 +299,7 @@ async def regenerate_cover_letter(
         linkedin_url=current_user.linkedin_url or "",
         school=current_user.school or "",
         education_level=current_user.education_level or "",
+        gender=current_user.gender or "",
     )
     app.cover_letter = letter
     db.add(app)

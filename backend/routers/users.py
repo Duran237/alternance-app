@@ -16,6 +16,7 @@ class UserProfile(BaseModel):
     name: str
     email: str
     phone: Optional[str] = None
+    gender: Optional[str] = None
     school: Optional[str] = None
     education_level: Optional[str] = None
     skills: List[str] = []
@@ -32,6 +33,7 @@ class UserProfile(BaseModel):
 class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    gender: Optional[str] = None
     school: Optional[str] = None
     education_level: Optional[str] = None
     skills: Optional[List[str]] = None

@@ -220,6 +220,7 @@ export default function Jobs() {
   const [scrapeMsg, setScrapeMsg] = useState('')
   const [sourcesFound, setSourcesFound] = useState([])
   const [profileLabel, setProfileLabel] = useState('')
+  const [contractFilter, setContractFilter] = useState('Alternance')
 
   useEffect(() => {
     if (!user) return
@@ -306,10 +307,10 @@ export default function Jobs() {
 
       {/* Search Bar */}
       <div className="card mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <input
             className="input-field sm:col-span-1"
-            placeholder="Ex: administrateur réseau, cybersécurité, SOC..."
+            placeholder="Ex: administrateur réseau, cybersécurité..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -321,13 +322,22 @@ export default function Jobs() {
             onChange={(e) => setLocation(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
+          <select
+            className="input-field"
+            value={contractFilter}
+            onChange={(e) => setContractFilter(e.target.value)}
+          >
+            <option value="Alternance">Alternance</option>
+            <option value="Stage">Stage</option>
+            <option value="">Tous types</option>
+          </select>
           <button
             onClick={handleSearch}
             disabled={scraping || !query.trim()}
             className="btn-primary flex items-center justify-center gap-2"
           >
             <RefreshCw size={16} className={scraping ? 'animate-spin' : ''} />
-            {scraping ? 'Recherche en cours...' : 'Rechercher'}
+            {scraping ? 'Recherche...' : 'Rechercher'}
           </button>
         </div>
 
@@ -402,7 +412,8 @@ export default function Jobs() {
       </div>
 
       {/* Job List */}
-      {jobs.length === 0 && !scraping ? (
+      {(() => { const filtered = contractFilter ? jobs.filter(j => !j.contract_type || j.contract_type.toLowerCase().includes(contractFilter.toLowerCase())) : jobs; return (
+      filtered.length === 0 && !scraping ? (
         <div className="text-center py-16 card">
           <Search size={40} className="text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Entrez des mots-clés et lancez la recherche</p>
@@ -410,10 +421,10 @@ export default function Jobs() {
         </div>
       ) : (
         <div className="space-y-4">
-          {jobs.length > 0 && (
-            <p className="text-sm text-gray-500 mb-2">{jobs.length} offre(s) trouvée(s)</p>
+          {filtered.length > 0 && (
+            <p className="text-sm text-gray-500 mb-2">{filtered.length} offre(s) trouvée(s)</p>
           )}
-          {jobs.map((job) => (
+          {filtered.map((job) => (
             <JobCard
               key={job.id}
               job={job}
@@ -423,7 +434,7 @@ export default function Jobs() {
             />
           ))}
         </div>
-      )}
+      ))})()}
     </div>
   )
 }
