@@ -232,7 +232,6 @@ export default function Jobs() {
       EDU_KEYWORD_MAP[user.education_level] || '',
     ].filter(Boolean).join(' · ')
     setProfileLabel(label)
-    handleSearchWithKeywords(kw, loc, '')
   }, [])
 
   const handleSearchFromProfile = async () => {
