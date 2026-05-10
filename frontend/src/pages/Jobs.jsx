@@ -1,6 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { jobsApi, applicationsApi, userApi } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import { Search, RefreshCw, ExternalLink, Send, MapPin, Building2, Zap, CheckCircle, User, Copy, X } from 'lucide-react'
+
+const EDU_KEYWORD_MAP = {
+  'Bac+1': 'Bac+1',
+  'Bac+2 (BTS / BUT)': 'BTS',
+  'Bac+3 (Licence / Bachelor)': 'Licence',
+  'Bac+4 (Master 1 / Ingénieur 3ème année)': 'Master 1',
+  'Bac+5 (Master 2 / Ingénieur)': 'Master ingénieur',
+}
+
+function buildProfileKeywords(user) {
+  const parts = []
+  if (user.target_roles?.length) parts.push(...user.target_roles.slice(0, 3))
+  if (user.skills?.length && parts.length < 3) parts.push(...user.skills.slice(0, 3))
+  const eduKw = EDU_KEYWORD_MAP[user.education_level]
+  if (eduKw) parts.push(eduKw)
+  return parts.join(' ') || 'alternance informatique'
+}
 
 function CoverLetterModal({ application, onClose }) {
   const [copied, setCopied] = useState(false)
@@ -191,6 +209,7 @@ const MAJOR_COMPANIES = [
 ]
 
 export default function Jobs() {
+  const { user } = useAuth()
   const [jobs, setJobs] = useState([])
   const [scraping, setScraping] = useState(false)
   const [query, setQuery] = useState('')
@@ -200,20 +219,31 @@ export default function Jobs() {
   const [successMsg, setSuccessMsg] = useState('')
   const [scrapeMsg, setScrapeMsg] = useState('')
   const [sourcesFound, setSourcesFound] = useState([])
+  const [profileLabel, setProfileLabel] = useState('')
+
+  useEffect(() => {
+    if (!user) return
+    const kw = buildProfileKeywords(user)
+    const loc = user.target_city || 'France'
+    setQuery(kw)
+    setLocation(loc)
+    const label = [
+      user.target_roles?.length ? user.target_roles.slice(0, 2).join(', ') : '',
+      EDU_KEYWORD_MAP[user.education_level] || '',
+    ].filter(Boolean).join(' · ')
+    setProfileLabel(label)
+    handleSearchWithKeywords(kw, loc, '')
+  }, [])
 
   const handleSearchFromProfile = async () => {
     try {
       const res = await userApi.getMe()
-      const user = res.data
-      const keywords = [
-        ...(user.skills || []).slice(0, 5),
-        ...(user.target_roles || []).slice(0, 2),
-      ].join(' ')
-      if (keywords) {
-        setQuery(keywords)
-        setLocation(user.target_city || '')
-        await handleSearchWithKeywords(keywords, user.target_city || 'France', company)
-      }
+      const u = res.data
+      const kw = buildProfileKeywords(u)
+      const loc = u.target_city || 'France'
+      setQuery(kw)
+      setLocation(loc)
+      await handleSearchWithKeywords(kw, loc, company)
     } catch {}
   }
 
@@ -262,7 +292,10 @@ export default function Jobs() {
       )}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Offres d'alternance</h1>
-        <p className="text-gray-500 mt-1 text-sm">Recherche en temps réel sur {ALL_SOURCES.length} sources</p>
+        <p className="text-gray-500 mt-1 text-sm">
+          Recherche en temps réel sur {ALL_SOURCES.length} sources
+          {profileLabel && <span className="ml-2 text-blue-600 font-medium">· {profileLabel}</span>}
+        </p>
       </div>
 
       {successMsg && (
