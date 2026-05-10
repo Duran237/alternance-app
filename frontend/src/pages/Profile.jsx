@@ -2,17 +2,25 @@ import { useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi, cvApi } from '../services/api'
-import { User, Upload, Github, Linkedin, MapPin, Zap, CheckCircle, AlertCircle, X, GraduationCap } from 'lucide-react'
+import { User, Upload, Github, Linkedin, MapPin, Zap, CheckCircle, AlertCircle, X, GraduationCap, Briefcase } from 'lucide-react'
 
-function SkillTag({ skill, onRemove }) {
+function Tag({ label, onRemove, color = 'blue' }) {
+  const colors = {
+    blue: 'bg-blue-100 text-blue-800',
+    purple: 'bg-purple-100 text-purple-800',
+  }
   return (
-    <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">
-      {skill}
-      <button onClick={() => onRemove(skill)} className="hover:text-red-600 ml-1">
+    <span className={`inline-flex items-center gap-1 text-sm px-3 py-1 rounded-full ${colors[color]}`}>
+      {label}
+      <button onClick={() => onRemove(label)} className="hover:text-red-600 ml-1">
         <X size={12} />
       </button>
     </span>
   )
+}
+
+function SkillTag({ skill, onRemove }) {
+  return <Tag label={skill} onRemove={onRemove} color="blue" />
 }
 
 export default function Profile() {
@@ -22,6 +30,8 @@ export default function Profile() {
   const [message, setMessage] = useState(null)
   const [skills, setSkills] = useState(user?.skills || [])
   const [skillInput, setSkillInput] = useState('')
+  const [roles, setRoles] = useState(user?.target_roles || [])
+  const [roleInput, setRoleInput] = useState('')
   const fileInputRef = useRef()
 
   const { register, handleSubmit, formState: { errors } } = useForm({
@@ -41,7 +51,7 @@ export default function Profile() {
     setSaving(true)
     setMessage(null)
     try {
-      await userApi.updateMe({ ...data, skills })
+      await userApi.updateMe({ ...data, skills, target_roles: roles })
       await refreshUser()
       setMessage({ type: 'success', text: 'Profil mis à jour avec succès' })
     } catch {
@@ -79,6 +89,16 @@ export default function Profile() {
   }
 
   const removeSkill = (skill) => setSkills(prev => prev.filter(s => s !== skill))
+
+  const addRole = () => {
+    const r = roleInput.trim()
+    if (r && !roles.includes(r)) {
+      setRoles(prev => [...prev, r])
+    }
+    setRoleInput('')
+  }
+
+  const removeRole = (role) => setRoles(prev => prev.filter(r => r !== role))
 
   return (
     <div className="p-8 max-w-3xl">
@@ -187,6 +207,35 @@ export default function Profile() {
                 </label>
                 <input className="input-field" placeholder="https://linkedin.com/in/..." {...register('linkedin_url')} />
               </div>
+            </div>
+          </div>
+
+          {/* Target Roles */}
+          <div className="card">
+            <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+              <Briefcase size={18} className="text-purple-600" />
+              Postes / Domaines souhaités
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">Utilisés pour cibler les offres d'alternance correspondantes</p>
+            <div className="flex gap-2 mb-4">
+              <input
+                className="input-field flex-1"
+                placeholder="Ex: Administrateur réseau, Analyste SOC, DevOps..."
+                value={roleInput}
+                onChange={(e) => setRoleInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addRole())}
+              />
+              <button type="button" onClick={addRole} className="btn-secondary px-4">
+                Ajouter
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {roles.map((role) => (
+                <Tag key={role} label={role} onRemove={removeRole} color="purple" />
+              ))}
+              {roles.length === 0 && (
+                <p className="text-sm text-gray-400">Aucun poste souhaité. L'algorithme se basera sur vos compétences.</p>
+              )}
             </div>
           </div>
 

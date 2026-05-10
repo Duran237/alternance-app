@@ -73,11 +73,13 @@ async def generate_cover_letter(
     """Generate a personalized cover letter."""
     if not _has_api_key():
         skills_str = ", ".join(user_skills[:5]) if user_skills else "Python, Linux, cybersécurité"
+        school_line = f" à {school}" if school else ""
+        edu_line = f"En {education_level}" if education_level else "Étudiant(e)"
         return f"""Madame, Monsieur,
 
-Actuellement à la recherche d'une alternance, je me permets de vous soumettre ma candidature pour le poste de {job_title} au sein de {company}.
+{edu_line}{school_line}, je me permets de vous soumettre ma candidature pour le poste de {job_title} au sein de {company} dans le cadre d'une alternance.
 
-Étudiant(e) passionné(e) par l'informatique et les nouvelles technologies, je dispose de compétences en {skills_str}. Mon parcours académique et mes projets personnels m'ont permis de développer une expertise technique solide et un sens de la rigueur indispensable dans ce domaine.
+Passionné(e) par l'informatique et les nouvelles technologies, je dispose de compétences en {skills_str}. Mon parcours académique et mes projets personnels m'ont permis de développer une expertise technique solide et un sens de la rigueur indispensable dans ce domaine.
 
 Je suis convaincu(e) que {company} représente un environnement stimulant pour développer mes compétences et contribuer à vos projets. Motivé(e) et curieux(se), je m'engage à apporter mon implication totale à votre équipe.
 
@@ -110,6 +112,8 @@ Cordialement,
 
     profile_section = "\n".join(profile_parts)
 
+    school_instruction = f"- Mentionne obligatoirement l'établissement ({school}) et le niveau d'études ({education_level}) dès le premier paragraphe" if school or education_level else ""
+
     prompt = f"""Génère une lettre de motivation professionnelle en français pour une candidature en alternance.
 
 Profil du candidat :
@@ -124,6 +128,7 @@ Instructions :
 - 3 paragraphes percutants et personnalisés
 - Utilise les éléments concrets du CV et du profil
 - Montre pourquoi ce candidat est fait pour ce poste précis
+{school_instruction}
 - Ne mets pas de date, adresse ou objet
 - IMPORTANT : texte brut uniquement, aucun markdown"""
 

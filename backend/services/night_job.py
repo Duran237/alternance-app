@@ -26,10 +26,25 @@ DRAFT_THRESHOLD = 60
 async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
     """Lance le job nocturne pour un utilisateur et retourne un résumé."""
 
-    # Construire les mots-clés à partir du profil
-    keywords_parts = list(user.skills or [])[:5]
+    # Construire les mots-clés : domaine souhaité > compétences > niveau d'études
+    keywords_parts = []
     if user.target_roles:
-        keywords_parts = list(user.target_roles)[:3] + keywords_parts[:3]
+        keywords_parts += list(user.target_roles)[:3]
+    if user.skills:
+        keywords_parts += list(user.skills)[:3]
+
+    edu_keyword_map = {
+        "Bac+1": "Bac+1",
+        "Bac+2 (BTS / BUT)": "BTS",
+        "Bac+3 (Licence / Bachelor)": "Licence",
+        "Bac+4 (Master 1 / Ingénieur 3ème année)": "Master 1",
+        "Bac+5 (Master 2 / Ingénieur)": "Master ingénieur",
+    }
+    if user.education_level:
+        edu_kw = edu_keyword_map.get(user.education_level, "")
+        if edu_kw:
+            keywords_parts.append(edu_kw)
+
     if not keywords_parts:
         keywords_parts = ["alternance informatique"]
     keywords = " ".join(keywords_parts)
