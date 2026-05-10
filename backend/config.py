@@ -22,6 +22,7 @@ class Settings(BaseSettings):
         return self.DATABASE_URL.startswith("postgresql") or self.DATABASE_URL.startswith("postgres")
     UPLOAD_DIR: str = "./uploads"
     ANTHROPIC_API_KEY: str = ""
+    RESEND_API_KEY: str = ""
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_HOST: str = "smtp.gmail.com"

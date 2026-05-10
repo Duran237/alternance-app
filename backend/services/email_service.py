@@ -1,45 +1,38 @@
-import smtplib
 import logging
 import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
+FROM_EMAIL = "Alternance App <onboarding@resend.dev>"
+
 
 def _can_send() -> bool:
-    return bool(settings.SMTP_USER and settings.SMTP_PASSWORD)
+    return bool(settings.RESEND_API_KEY and settings.RESEND_API_KEY.startswith("re_"))
 
 
-def _smtp_connect():
-    """Connexion SMTP compatible Gmail (SSL 465) et Outlook/autre (STARTTLS 587)."""
-    host = settings.SMTP_HOST
-    port = settings.SMTP_PORT
-    if port == 465:
-        server = smtplib.SMTP_SSL(host, port)
-    else:
-        server = smtplib.SMTP(host, port)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-    server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-    return server
-
-
-def _send(msg) -> bool:
-    with _smtp_connect() as server:
-        server.sendmail(settings.SMTP_USER, msg["To"], msg.as_string())
-    return True
+def _send_email(to: str, subject: str, html: str) -> bool:
+    if not _can_send():
+        logger.warning(f"[Email] RESEND_API_KEY non configuré — email non envoyé à {to}")
+        return False
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": FROM_EMAIL,
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        })
+        logger.info(f"[Email] Envoyé à {to} : {subject}")
+        return True
+    except Exception as e:
+        logger.error(f"[Email] Erreur : {e}")
+        return False
 
 
 def send_otp_email(to_email: str, user_name: str, otp_code: str) -> bool:
-    if not _can_send():
-        logger.warning(f"[Email] SMTP non configuré (SMTP_USER={bool(settings.SMTP_USER)}, SMTP_PASSWORD={bool(settings.SMTP_PASSWORD)}) — OTP non envoyé à {to_email}")
-        return False
     html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
       <div style="background: #2563eb; padding: 24px; border-radius: 8px 8px 0 0;">
@@ -55,23 +48,10 @@ def send_otp_email(to_email: str, user_name: str, otp_code: str) -> bool:
       </div>
     </div>
     """
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"{otp_code} — Code de vérification Alternance App"
-        msg["From"] = settings.SMTP_USER
-        msg["To"] = to_email
-        msg.attach(MIMEText(html, "html", "utf-8"))
-        _send(msg)
-        logger.info(f"[Email] OTP envoyé à {to_email}")
-        return True
-    except Exception as e:
-        logger.error(f"[Email] Erreur OTP : {e}")
-        return False
+    return _send_email(to_email, f"{otp_code} — Code de vérification Alternance App", html)
 
 
 def send_welcome_email(to_email: str, user_name: str) -> bool:
-    if not _can_send():
-        return False
     html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #2563eb; padding: 24px; border-radius: 8px 8px 0 0;">
@@ -91,26 +71,13 @@ def send_welcome_email(to_email: str, user_name: str) -> bool:
       </div>
     </div>
     """
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Bienvenue sur Alternance App !"
-        msg["From"] = settings.SMTP_USER
-        msg["To"] = to_email
-        msg.attach(MIMEText(html, "html", "utf-8"))
-        _send(msg)
-        logger.info(f"[Email] Bienvenue envoyé à {to_email}")
-        return True
-    except Exception as e:
-        logger.error(f"[Email] Erreur bienvenue : {e}")
-        return False
+    return _send_email(to_email, "Bienvenue sur Alternance App !", html)
 
 
 def send_application_confirmation(
     to_email: str, user_name: str, job_title: str,
     company: str, job_url: str, cover_letter: str = "",
 ) -> bool:
-    if not _can_send():
-        return False
     letter_block = (
         f'<div style="margin-top:24px;"><h3 style="color:#374151;">Ta lettre de motivation :</h3>'
         f'<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;'
@@ -136,44 +103,22 @@ def send_application_confirmation(
       </div>
     </div>
     """
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Candidature — {job_title} chez {company}"
-        msg["From"] = settings.SMTP_USER
-        msg["To"] = to_email
-        msg.attach(MIMEText(html, "html", "utf-8"))
-        _send(msg)
-        return True
-    except Exception as e:
-        logger.error(f"[Email] Erreur confirmation : {e}")
-        return False
+    return _send_email(to_email, f"Candidature — {job_title} chez {company}", html)
 
 
 def send_real_application(
     recruiter_email: str, user_name: str, user_email: str,
     job_title: str, company: str, cover_letter: str, cv_path: str = "",
 ) -> bool:
-    if not _can_send():
-        return False
-    body = f"{cover_letter}\n\n---\n{user_name}\n{user_email}"
-    try:
-        msg = MIMEMultipart()
-        msg["Subject"] = f"Candidature alternance – {job_title} – {user_name}"
-        msg["From"] = f"{user_name} <{settings.SMTP_USER}>"
-        msg["To"] = recruiter_email
-        msg["Reply-To"] = user_email
-        msg.attach(MIMEText(body, "plain", "utf-8"))
-        if cv_path and os.path.exists(cv_path):
-            with open(cv_path, "rb") as f:
-                part = MIMEBase("application", "pdf")
-                part.set_payload(f.read())
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f'attachment; filename="CV_{user_name.replace(" ", "_")}.pdf"')
-                msg.attach(part)
-        with _smtp_connect() as server:
-            server.sendmail(settings.SMTP_USER, recruiter_email, msg.as_string())
-        logger.info(f"[Email] Candidature envoyée à {recruiter_email}")
-        return True
-    except Exception as e:
-        logger.error(f"[Email] Erreur candidature : {e}")
-        return False
+    html = f"""
+    <div style="font-family: Arial, sans-serif;">
+      <p>{cover_letter.replace(chr(10), '<br>')}</p>
+      <hr>
+      <p>{user_name}<br>{user_email}</p>
+    </div>
+    """
+    return _send_email(
+        recruiter_email,
+        f"Candidature alternance – {job_title} – {user_name}",
+        html,
+    )
