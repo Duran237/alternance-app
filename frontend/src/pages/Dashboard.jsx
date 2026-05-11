@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { statsApi, jobsApi, automationApi } from '../services/api'
-import { Send, Calendar, XCircle, CheckCircle, TrendingUp, Search, Bell, ArrowRight, Moon, Zap } from 'lucide-react'
+import { Send, Calendar, XCircle, CheckCircle, TrendingUp, Search, Bell, ArrowRight, Moon, Zap, ChevronDown, ChevronUp } from 'lucide-react'
 
 function StatCard({ label, value, icon: Icon, color, bg }) {
   return (
@@ -18,22 +18,104 @@ function StatCard({ label, value, icon: Icon, color, bg }) {
   )
 }
 
+function NightReports({ reports }) {
+  const [expanded, setExpanded] = useState(false)
+
+  // Filter reports from last 12h (night session: 2h–7h)
+  const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000)
+  const nightReports = reports.filter(r => new Date(r.run_at) >= cutoff)
+
+  if (nightReports.length === 0) return null
+
+  const totalJobs = nightReports.reduce((s, r) => s + r.new_jobs_found, 0)
+  const totalCompatible = nightReports.reduce((s, r) => s + r.compatible_jobs, 0)
+  const totalDrafts = nightReports.reduce((s, r) => s + r.drafts_prepared, 0)
+
+  if (totalDrafts === 0 && totalJobs === 0) return null
+
+  const fmt = (dateStr) => {
+    const d = new Date(dateStr)
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  return (
+    <div className="card bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 mb-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 flex-1">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Moon size={18} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-gray-900">Rapport de nuit</h2>
+              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                {nightReports.length} passage{nightReports.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 mt-0.5">
+              <span className="font-medium text-blue-700">{totalJobs} nouvelles offres</span>
+              {' · '}
+              <span className="font-medium text-green-700">{totalCompatible} compatibles</span>
+              {' · '}
+              <span className="font-medium text-purple-700">{totalDrafts} candidatures prêtes</span>
+            </p>
+
+            {nightReports.length > 1 && (
+              <button
+                onClick={() => setExpanded(e => !e)}
+                className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              >
+                {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                {expanded ? 'Masquer les détails' : 'Voir le détail des passages'}
+              </button>
+            )}
+
+            {expanded && (
+              <div className="mt-3 space-y-1.5">
+                {nightReports.map(r => (
+                  <div key={r.id} className="flex items-center gap-3 text-xs bg-white/70 rounded-lg px-3 py-2">
+                    <span className="font-mono text-gray-500 w-10 flex-shrink-0">{fmt(r.run_at)}</span>
+                    <span className="text-blue-600 font-medium">{r.new_jobs_found} offres</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-green-600 font-medium">{r.compatible_jobs} compatibles</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-purple-600 font-medium">{r.drafts_prepared} brouillons</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {totalDrafts > 0 && (
+          <Link
+            to="/automation"
+            className="btn-primary text-sm flex items-center gap-1 flex-shrink-0"
+          >
+            <Zap size={14} />
+            Valider les candidatures
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [recommended, setRecommended] = useState([])
-  const [nightReport, setNightReport] = useState(null)
+  const [nightReports, setNightReports] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       statsApi.get(),
       jobsApi.recommended(),
-      automationApi.getLatestReport(),
-    ]).then(([statsRes, jobsRes, reportRes]) => {
+      automationApi.getHistory(),
+    ]).then(([statsRes, jobsRes, historyRes]) => {
       setStats(statsRes.data)
       setRecommended(jobsRes.data.slice(0, 5))
-      setNightReport(reportRes.data)
+      setNightReports(historyRes.data || [])
     }).finally(() => setLoading(false))
   }, [])
 
@@ -50,35 +132,8 @@ export default function Dashboard() {
         <p className="text-gray-500 mt-1">Voici un aperçu de ta recherche d'alternance</p>
       </div>
 
-      {/* Rapport nocturne */}
-      {nightReport && nightReport.drafts_prepared > 0 && (
-        <div className="card bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Moon size={18} className="text-white" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-gray-900">Rapport de nuit</h2>
-                <p className="text-sm text-gray-600 mt-0.5">
-                  <span className="font-medium text-blue-700">{nightReport.new_jobs_found} nouvelles offres</span>
-                  {' · '}
-                  <span className="font-medium text-green-700">{nightReport.compatible_jobs} compatibles</span>
-                  {' · '}
-                  <span className="font-medium text-purple-700">{nightReport.drafts_prepared} candidatures prêtes</span>
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/automation"
-              className="btn-primary text-sm flex items-center gap-1 flex-shrink-0"
-            >
-              <Zap size={14} />
-              Valider les candidatures
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* Rapports nocturnes */}
+      <NightReports reports={nightReports} />
 
       {/* Stats Cards */}
       {stats && (
