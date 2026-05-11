@@ -31,16 +31,25 @@ function NightReports({ reports }) {
   const totalCompatible = nightReports.reduce((s, r) => s + r.compatible_jobs, 0)
   const totalDrafts = nightReports.reduce((s, r) => s + r.drafts_prepared, 0)
 
-  if (totalDrafts === 0 && totalJobs === 0) return null
+  if (totalDrafts === 0 && totalJobs === 0 && totalCompatible === 0) return null
 
   const fmt = (dateStr) => {
     const d = new Date(dateStr)
     return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
 
+  // Dédupliquer les top_jobs de tous les rapports (par titre+entreprise)
+  const seen = new Set()
+  const allTopJobs = nightReports.flatMap(r => r.top_jobs || []).filter(job => {
+    const key = `${job.title}|${job.company}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).sort((a, b) => b.score - a.score).slice(0, 8)
+
   return (
     <div className="card bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 mb-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-start gap-3 flex-1">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
             <Moon size={18} className="text-white" />
@@ -59,31 +68,6 @@ function NightReports({ reports }) {
               {' · '}
               <span className="font-medium text-purple-700">{totalDrafts} candidatures prêtes</span>
             </p>
-
-            {nightReports.length > 1 && (
-              <button
-                onClick={() => setExpanded(e => !e)}
-                className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-              >
-                {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                {expanded ? 'Masquer les détails' : 'Voir le détail des passages'}
-              </button>
-            )}
-
-            {expanded && (
-              <div className="mt-3 space-y-1.5">
-                {nightReports.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 text-xs bg-white/70 rounded-lg px-3 py-2">
-                    <span className="font-mono text-gray-500 w-10 flex-shrink-0">{fmt(r.run_at)}</span>
-                    <span className="text-blue-600 font-medium">{r.new_jobs_found} offres</span>
-                    <span className="text-gray-400">·</span>
-                    <span className="text-green-600 font-medium">{r.compatible_jobs} compatibles</span>
-                    <span className="text-gray-400">·</span>
-                    <span className="text-purple-600 font-medium">{r.drafts_prepared} brouillons</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
         {totalDrafts > 0 && (
@@ -92,10 +76,57 @@ function NightReports({ reports }) {
             className="btn-primary text-sm flex items-center gap-1 flex-shrink-0"
           >
             <Zap size={14} />
-            Valider les candidatures
+            Valider
           </Link>
         )}
       </div>
+
+      {/* Top offres compatibles */}
+      {allTopJobs.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {allTopJobs.map((job, i) => (
+            <div key={i} className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-900 truncate">{job.title}</p>
+                <p className="text-xs text-gray-500 truncate">{job.company}{job.location ? ` · ${job.location}` : ''}</p>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
+                job.score >= 70 ? 'bg-green-100 text-green-700' :
+                job.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                {job.score}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Détail par passage */}
+      {nightReports.length > 1 && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="mt-3 text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+        >
+          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          {expanded ? 'Masquer les passages' : 'Voir les détails par passage'}
+        </button>
+      )}
+
+      {expanded && (
+        <div className="mt-2 space-y-1">
+          {nightReports.map(r => (
+            <div key={r.id} className="flex items-center gap-3 text-xs bg-white/50 rounded px-3 py-1.5">
+              <span className="font-mono text-gray-400 w-10 flex-shrink-0">{fmt(r.run_at)}</span>
+              <span className="text-blue-600">{r.new_jobs_found} offres</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-green-600">{r.compatible_jobs} compatibles</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-purple-600">{r.drafts_prepared} brouillons</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
