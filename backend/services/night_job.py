@@ -126,7 +126,7 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
 
     # Rapport de nuit
     top_jobs_data = [
-        {"title": job.title, "company": job.company, "score": score, "location": job.location}
+        {"id": job.id, "title": job.title, "company": job.company, "score": score, "location": job.location, "url": job.url}
         for score, job in top_matches[:5]
     ]
 

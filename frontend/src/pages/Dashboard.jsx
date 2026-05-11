@@ -1,8 +1,59 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { statsApi, jobsApi, automationApi } from '../services/api'
-import { Send, Calendar, XCircle, CheckCircle, TrendingUp, Search, Bell, ArrowRight, Moon, Zap, ChevronDown, ChevronUp } from 'lucide-react'
+import { statsApi, jobsApi, automationApi, applicationsApi } from '../services/api'
+import { Send, Calendar, XCircle, CheckCircle, TrendingUp, Search, Bell, ArrowRight, Moon, Zap, ChevronDown, ChevronUp, X, Copy, ExternalLink } from 'lucide-react'
+
+function ApplyModal({ application, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const emailSent = !!application.email_sent_to
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Candidature enregistrée</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{application.job_title} — {application.company}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <div className={`px-6 py-3 text-sm font-medium flex items-center gap-2 ${emailSent ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+          <CheckCircle size={16} />
+          {emailSent ? `Email envoyé au recruteur (${application.email_sent_to})` : 'Copie ta lettre et postule sur le site de l\'offre'}
+        </div>
+
+        {application.cover_letter && (
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-700">Ta lettre de motivation :</p>
+              <button
+                onClick={() => { navigator.clipboard.writeText(application.cover_letter); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                <Copy size={13} />{copied ? 'Copié !' : 'Copier'}
+              </button>
+            </div>
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 leading-relaxed font-sans">
+              {application.cover_letter}
+            </pre>
+          </div>
+        )}
+
+        <div className="p-6 border-t flex gap-3">
+          {application.job_url && (
+            <a href={application.job_url} target="_blank" rel="noopener noreferrer"
+              className="btn-primary flex items-center gap-2 text-sm">
+              <ExternalLink size={14} />Voir l'offre
+            </a>
+          )}
+          <button onClick={onClose} className="btn-secondary text-sm">Fermer</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function StatCard({ label, value, icon: Icon, color, bg }) {
   return (
@@ -20,6 +71,9 @@ function StatCard({ label, value, icon: Icon, color, bg }) {
 
 function NightReports({ reports }) {
   const [expanded, setExpanded] = useState(false)
+  const [applying, setApplying] = useState(null)
+  const [appliedIds, setAppliedIds] = useState(new Set())
+  const [modal, setModal] = useState(null)
 
   // Filter reports from last 12h (night session: 2h–7h)
   const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000)
@@ -38,6 +92,22 @@ function NightReports({ reports }) {
     return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const handleApply = async (job) => {
+    if (!job.id || appliedIds.has(job.id)) return
+    setApplying(job.id)
+    try {
+      const res = await applicationsApi.create({ job_id: job.id, generate_letter: true })
+      setAppliedIds(prev => new Set([...prev, job.id]))
+      setModal(res.data)
+    } catch (e) {
+      if (e.response?.status === 409) {
+        setAppliedIds(prev => new Set([...prev, job.id]))
+      }
+    } finally {
+      setApplying(null)
+    }
+  }
+
   // Dédupliquer les top_jobs de tous les rapports (par titre+entreprise)
   const seen = new Set()
   const allTopJobs = nightReports.flatMap(r => r.top_jobs || []).filter(job => {
@@ -48,6 +118,8 @@ function NightReports({ reports }) {
   }).sort((a, b) => b.score - a.score).slice(0, 8)
 
   return (
+    <>
+    {modal && <ApplyModal application={modal} onClose={() => setModal(null)} />}
     <div className="card bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 mb-6">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-start gap-3 flex-1">
@@ -84,21 +156,39 @@ function NightReports({ reports }) {
       {/* Top offres compatibles */}
       {allTopJobs.length > 0 && (
         <div className="mt-2 space-y-1.5">
-          {allTopJobs.map((job, i) => (
-            <div key={i} className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-900 truncate">{job.title}</p>
-                <p className="text-xs text-gray-500 truncate">{job.company}{job.location ? ` · ${job.location}` : ''}</p>
+          {allTopJobs.map((job, i) => {
+            const already = appliedIds.has(job.id)
+            return (
+              <div key={i} className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-900 truncate">{job.title}</p>
+                  <p className="text-xs text-gray-500 truncate">{job.company}{job.location ? ` · ${job.location}` : ''}</p>
+                </div>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  job.score >= 70 ? 'bg-green-100 text-green-700' :
+                  job.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {job.score}%
+                </span>
+                {job.id && (
+                  already ? (
+                    <span className="text-xs text-green-600 font-medium flex-shrink-0 flex items-center gap-1">
+                      <CheckCircle size={12} /> Postulé
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleApply(job)}
+                      disabled={applying === job.id}
+                      className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-lg hover:bg-indigo-700 flex-shrink-0 disabled:opacity-50"
+                    >
+                      {applying === job.id ? '...' : 'Postuler'}
+                    </button>
+                  )
+                )}
               </div>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
-                job.score >= 70 ? 'bg-green-100 text-green-700' :
-                job.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                'bg-gray-100 text-gray-600'
-              }`}>
-                {job.score}%
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -128,6 +218,7 @@ function NightReports({ reports }) {
         </div>
       )}
     </div>
+    </>
   )
 }
 
