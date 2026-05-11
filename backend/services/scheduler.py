@@ -17,13 +17,13 @@ async def _scheduled_night_job():
 def start_scheduler():
     scheduler.add_job(
         _scheduled_night_job,
-        trigger=CronTrigger(hour=2, minute=0),
+        trigger=CronTrigger(hour=2, minute=0, timezone="Europe/Paris"),
         id="night_job",
         name="Recherche nocturne d'alternances",
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("[Scheduler] Tâche nocturne planifiée à 02h00 chaque nuit")
+    logger.info("[Scheduler] Tâche nocturne planifiée à 02h00 heure de Paris")
 
 
 def stop_scheduler():
