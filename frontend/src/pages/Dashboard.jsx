@@ -41,14 +41,25 @@ function ApplyModal({ application, onClose }) {
           </div>
         )}
 
-        <div className="p-6 border-t flex gap-3">
-          {application.job_url && (
-            <a href={application.job_url} target="_blank" rel="noopener noreferrer"
-              className="btn-primary flex items-center gap-2 text-sm">
-              <ExternalLink size={14} />Voir l'offre
-            </a>
-          )}
-          <button onClick={onClose} className="btn-secondary text-sm">Fermer</button>
+        <div className="p-6 border-t space-y-3">
+          <div className="flex gap-3">
+            {application.job_url && (
+              <a href={application.job_url} target="_blank" rel="noopener noreferrer"
+                className="btn-primary flex items-center gap-2 text-sm">
+                <ExternalLink size={14} />Voir l'offre
+              </a>
+            )}
+            {application.job_title && application.company && (
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(`${application.job_title} ${application.company} alternance`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="btn-secondary flex items-center gap-2 text-sm">
+                <Search size={14} />Rechercher sur Google
+              </a>
+            )}
+            <button onClick={onClose} className="btn-secondary text-sm ml-auto">Fermer</button>
+          </div>
+          <p className="text-xs text-gray-400">Le lien direct peut être expiré si l'offre a été pourvue. Utilise la recherche Google pour retrouver l'offre.</p>
         </div>
       </div>
     </div>
