@@ -108,10 +108,10 @@ function NightReports({ reports }) {
     }
   }
 
-  // Dédupliquer les top_jobs de tous les rapports (par titre+entreprise)
+  // Dédupliquer par job.id (priorité) ou titre|entreprise en minuscules (fallback anciens rapports)
   const seen = new Set()
   const allTopJobs = nightReports.flatMap(r => r.top_jobs || []).filter(job => {
-    const key = `${job.title}|${job.company}`
+    const key = job.id != null ? job.id : `${(job.title || '').toLowerCase()}|${(job.company || '').toLowerCase()}`
     if (seen.has(key)) return false
     seen.add(key)
     return true
