@@ -60,8 +60,10 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
             new_jobs_added += 1
     await db.commit()
 
-    # Récupérer toutes les offres récentes
-    result = await db.execute(select(Job).order_by(Job.scraped_at.desc()).limit(300))
+    # Récupérer les offres des 7 derniers jours uniquement
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    result = await db.execute(select(Job).where(Job.scraped_at >= cutoff).order_by(Job.scraped_at.desc()).limit(300))
     all_jobs = result.scalars().all()
 
     # Offres déjà postulées par l'utilisateur (y compris drafts)

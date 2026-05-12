@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -40,7 +41,8 @@ async def list_jobs(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Job)
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    stmt = select(Job).where(Job.scraped_at >= cutoff)
 
     filters = []
     if q:
@@ -86,7 +88,8 @@ async def recommended_jobs(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Job).order_by(Job.scraped_at.desc()).limit(200))
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    result = await db.execute(select(Job).where(Job.scraped_at >= cutoff).order_by(Job.scraped_at.desc()).limit(200))
     jobs = result.scalars().all()
 
     scored = []
