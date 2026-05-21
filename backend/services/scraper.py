@@ -148,6 +148,88 @@ def _full_url(href: str, base: str) -> str:
     return href if href.startswith("http") else base.rstrip("/") + "/" + href.lstrip("/")
 
 
+# ── Fallback IA ───────────────────────────────────────────────────────────────
+async def _ai_extract_jobs(html: str, base_url: str, source_name: str) -> list[dict]:
+    """
+    Fallback : quand les sélecteurs CSS retournent 0 résultat, envoie le HTML
+    nettoyé à Claude Haiku qui extrait les offres directement en JSON.
+    Nécessite ANTHROPIC_API_KEY.
+    """
+    from config import settings
+    if not settings.ANTHROPIC_API_KEY:
+        return []
+
+    import json as _json
+
+    # Nettoyer le HTML : supprimer scripts, styles, SVG puis attributs inutiles
+    clean = _re.sub(r"<script[^>]*>.*?</script>", "", html, flags=_re.DOTALL | _re.IGNORECASE)
+    clean = _re.sub(r"<style[^>]*>.*?</style>", "", clean, flags=_re.DOTALL | _re.IGNORECASE)
+    clean = _re.sub(r"<svg[^>]*>.*?</svg>", "", clean, flags=_re.DOTALL | _re.IGNORECASE)
+    # Conserver les href, supprimer le reste des attributs
+    clean = _re.sub(r'<(a)\s+[^>]*href=["\']([^"\']+)["\'][^>]*>', r'<a href="\2">', clean, flags=_re.IGNORECASE)
+    clean = _re.sub(r'\s+(?:class|id|style|data-\S+|aria-\S+)=["\'][^"\']*["\']', "", clean)
+    clean = _re.sub(r"\n\s*\n+", "\n", clean).strip()
+    clean = clean[:7000]
+
+    prompt = f"""HTML d'une page de recherche d'alternance sur {source_name} (base URL: {base_url}).
+
+Extrais toutes les offres d'alternance et retourne un tableau JSON.
+Chaque offre doit avoir :
+- "title": intitulé du poste
+- "company": nom de l'entreprise
+- "location": ville/lieu
+- "salary": salaire ou null
+- "url": lien absolu vers l'offre (utilise {base_url} comme base pour les liens relatifs)
+- "description": texte descriptif si disponible sinon ""
+
+Réponds UNIQUEMENT avec le tableau JSON valide, sans markdown. Si aucune offre : [].
+
+HTML:
+{clean}"""
+
+    try:
+        import anthropic as _anthropic
+        client = _anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        message = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = message.content[0].text.strip()
+        # Enlever le markdown si présent
+        raw = _re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = _re.sub(r"\n?```$", "", raw)
+        offers = _json.loads(raw)
+        if not isinstance(offers, list):
+            return []
+
+        result = []
+        for o in offers:
+            url = (o.get("url") or "").strip()
+            if not url:
+                continue
+            if not url.startswith("http"):
+                url = _full_url(url, base_url)
+            desc = str(o.get("description") or "")
+            result.append({
+                "title": (o.get("title") or "").strip(),
+                "company": (o.get("company") or "Entreprise").strip(),
+                "location": (o.get("location") or "").strip(),
+                "salary": o.get("salary"),
+                "description": desc[:1200],
+                "skills_required": _extract_skills(desc),
+                "url": url,
+                "source": source_name,
+                "contract_type": "Alternance",
+                "level": None,
+            })
+        logger.info(f"[AI Fallback] {source_name}: {len(result)} offres extraites")
+        return result
+    except Exception as e:
+        logger.error(f"[AI Fallback] {source_name}: {e}")
+        return []
+
+
 # ── Playwright helper ─────────────────────────────────────────────────────────
 async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_seconds: float = 3.0) -> str:
     """Charge une page avec Playwright et retourne le HTML rendu."""
@@ -183,6 +265,7 @@ async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_secon
 # ── 1. HelloWork ─────────────────────────────────────────────────────────────
 async def scrape_hellowork(keywords: str, location: str = "France", company: str = "") -> list[dict]:
     jobs = []
+    html = ""
     kw_full = f"{keywords} {company}".strip() if company else keywords
     query = kw_full.replace(" ", "+")
     url = f"https://www.hellowork.com/fr-fr/emploi/recherche.html?k={query}&l={location}&c=Alternance"
@@ -231,6 +314,9 @@ async def scrape_hellowork(keywords: str, location: str = "France", company: str
     except Exception as e:
         logger.error(f"[HelloWork] {e}")
 
+    if not jobs and html:
+        jobs = await _ai_extract_jobs(html, "https://www.hellowork.com", "hellowork")
+
     logger.info(f"[HelloWork] {len(jobs)} offres")
     return jobs
 
@@ -238,6 +324,7 @@ async def scrape_hellowork(keywords: str, location: str = "France", company: str
 # ── 2. Indeed ────────────────────────────────────────────────────────────────
 async def scrape_indeed(keywords: str, location: str = "France", company: str = "") -> list[dict]:
     jobs = []
+    html = ""
     query = keywords.replace(" ", "+")
     if company:
         url = f"https://fr.indeed.com/jobs?q={query}+alternance&l={location}&rbc={company.replace(' ', '+')}&rbt=EMPLOYER&sort=date"
@@ -288,6 +375,9 @@ async def scrape_indeed(keywords: str, location: str = "France", company: str = 
     except Exception as e:
         logger.error(f"[Indeed] {e}")
 
+    if not jobs and html:
+        jobs = await _ai_extract_jobs(html, "https://fr.indeed.com", "indeed")
+
     logger.info(f"[Indeed] {len(jobs)} offres")
     return jobs
 
@@ -295,6 +385,7 @@ async def scrape_indeed(keywords: str, location: str = "France", company: str = 
 # ── 3. Welcome to the Jungle ─────────────────────────────────────────────────
 async def scrape_wttj(keywords: str, location: str = "France") -> list[dict]:
     jobs = []
+    html = ""
     query = keywords.replace(" ", "%20")
     loc = location if location.lower() != "france" else "France"
     url = (
@@ -345,6 +436,9 @@ async def scrape_wttj(keywords: str, location: str = "France") -> list[dict]:
     except Exception as e:
         logger.error(f"[WTTJ] {e}")
 
+    if not jobs and html:
+        jobs = await _ai_extract_jobs(html, "https://www.welcometothejungle.com", "welcome_to_the_jungle")
+
     logger.info(f"[WTTJ] {len(jobs)} offres")
     return jobs
 
@@ -352,6 +446,7 @@ async def scrape_wttj(keywords: str, location: str = "France") -> list[dict]:
 # ── 4. APEC ─────────────────────────────────────────────────────────────────
 async def scrape_apec(keywords: str, location: str = "France") -> list[dict]:
     jobs = []
+    html = ""
     query = keywords.replace(" ", "+")
     url = f"https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles={query}&typeContrat=85"
 
@@ -397,6 +492,9 @@ async def scrape_apec(keywords: str, location: str = "France") -> list[dict]:
 
     except Exception as e:
         logger.error(f"[APEC] {e}")
+
+    if not jobs and html:
+        jobs = await _ai_extract_jobs(html, "https://www.apec.fr", "apec")
 
     logger.info(f"[APEC] {len(jobs)} offres")
     return jobs
@@ -665,6 +763,7 @@ async def scrape_letudiant(keywords: str, location: str = "France") -> list[dict
 # ── 8. JobTeaser (offres directes des entreprises partenaires) ────────────────
 async def scrape_jobteaser(keywords: str, location: str = "France") -> list[dict]:
     jobs = []
+    html = ""
     query = keywords.replace(" ", "+")
     url = (
         f"https://www.jobteaser.com/fr/job-offers"
@@ -715,6 +814,9 @@ async def scrape_jobteaser(keywords: str, location: str = "France") -> list[dict
 
     except Exception as e:
         logger.error(f"[JobTeaser] {e}")
+
+    if not jobs and html:
+        jobs = await _ai_extract_jobs(html, "https://www.jobteaser.com", "jobteaser")
 
     logger.info(f"[JobTeaser] {len(jobs)} offres")
     return jobs
