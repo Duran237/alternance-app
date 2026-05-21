@@ -34,17 +34,8 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
     if user.skills:
         keywords_parts += list(user.skills)[:3]
 
-    edu_keyword_map = {
-        "Bac+1": "Bac+1",
-        "Bac+2 (BTS / BUT)": "BTS",
-        "Bac+3 (Licence / Bachelor)": "Licence",
-        "Bac+4 (Master 1 / Ingénieur 3ème année)": "Master 1",
-        "Bac+5 (Master 2 / Ingénieur)": "Master ingénieur",
-    }
-    if user.education_level:
-        edu_kw = edu_keyword_map.get(user.education_level, "")
-        if edu_kw:
-            keywords_parts.append(edu_kw)
+    # Toujours chercher Bac+2 ET Bac+3 (BTS/BUT + Licence/Bachelor)
+    keywords_parts += ["BTS", "Licence"]
 
     if not keywords_parts:
         keywords_parts = ["alternance informatique"]

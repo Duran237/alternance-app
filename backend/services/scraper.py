@@ -487,6 +487,7 @@ async def scrape_lba(keywords: str, location: str = "France", api_key: str = "")
     Nouvelle API LBA (l'ancienne /api/v1/jobsEtFormations est décommissionnée HTTP 410).
     Endpoint : GET https://api.apprentissage.beta.gouv.fr/api/job/v1/search
     Nécessite une clé Bearer (LBA_API_KEY). Sans clé, la source est ignorée.
+    Recherche en parallèle les niveaux Bac+2 (5) et Bac+3 (6).
     """
     if not api_key:
         logger.info("[LBA] LBA_API_KEY non configurée — source ignorée")
@@ -497,8 +498,8 @@ async def scrape_lba(keywords: str, location: str = "France", api_key: str = "")
     coords = CITY_COORDS.get(loc_key, CITY_COORDS["france"])
     lat, lon = coords
 
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
+    async def _fetch_level(client: httpx.AsyncClient, diploma_level: str) -> list:
+        try:
             resp = await client.get(
                 "https://api.apprentissage.beta.gouv.fr/api/job/v1/search",
                 params={
@@ -506,6 +507,7 @@ async def scrape_lba(keywords: str, location: str = "France", api_key: str = "")
                     "longitude": lon,
                     "radius": 60,
                     "romes": _ROME_IT,
+                    "target_diploma_level": diploma_level,
                 },
                 headers={
                     "Authorization": f"Bearer {api_key}",
@@ -513,11 +515,21 @@ async def scrape_lba(keywords: str, location: str = "France", api_key: str = "")
                 },
             )
             if resp.status_code not in (200, 206):
-                logger.warning(f"[LBA] Status {resp.status_code}: {resp.text[:200]}")
+                logger.warning(f"[LBA] niveau {diploma_level} — Status {resp.status_code}")
                 return []
-            data = resp.json()
+            return resp.json().get("jobs") or []
+        except Exception as e:
+            logger.error(f"[LBA] niveau {diploma_level}: {e}")
+            return []
 
-        raw_jobs = data.get("jobs") or []
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Bac+2 = niveau 5, Bac+3 = niveau 6 (référentiel RNCP)
+            results = await asyncio.gather(
+                _fetch_level(client, "5"),
+                _fetch_level(client, "6"),
+            )
+        raw_jobs = results[0] + results[1]
 
         for offer in raw_jobs[:30]:
             offer_obj = offer.get("offer") or {}
