@@ -73,6 +73,23 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
     "rennes": (48.1173, -1.6778),
     "grenoble": (45.1885, 5.7245),
     "nice": (43.7102, 7.2620),
+    "amiens": (49.8941, 2.2958),
+    "rouen": (49.4432, 1.0993),
+    "caen": (49.1829, -0.3707),
+    "reims": (49.2583, 4.0317),
+    "dijon": (47.3220, 5.0415),
+    "clermont-ferrand": (45.7772, 3.0870),
+    "tours": (47.3941, 0.6848),
+    "angers": (47.4784, -0.5632),
+    "metz": (49.1193, 6.1757),
+    "nancy": (48.6921, 6.1844),
+    "brest": (48.3905, -4.4860),
+    "le havre": (49.4944, 0.1079),
+    "saint-etienne": (45.4347, 4.3900),
+    "toulon": (43.1242, 5.9280),
+    "aix-en-provence": (43.5297, 5.4474),
+    "valenciennes": (50.3572, 3.5237),
+    "dunkerque": (51.0343, 2.3773),
     "france": (48.8566, 2.3522),
 }
 
@@ -90,6 +107,23 @@ CITY_INSEE: dict[str, str] = {
     "rennes": "35238",
     "grenoble": "38185",
     "nice": "06088",
+    "amiens": "80021",
+    "rouen": "76540",
+    "caen": "14118",
+    "reims": "51454",
+    "dijon": "21231",
+    "clermont-ferrand": "63113",
+    "tours": "37261",
+    "angers": "49007",
+    "metz": "57463",
+    "nancy": "54395",
+    "brest": "29019",
+    "le havre": "76351",
+    "saint-etienne": "42218",
+    "toulon": "83137",
+    "aix-en-provence": "13001",
+    "valenciennes": "59606",
+    "dunkerque": "59183",
     "france": "75056",
 }
 
@@ -979,10 +1013,12 @@ async def scrape_all(
             if _is_educational_institution(job.get("company", ""), job.get("title", "")):
                 logger.debug(f"[scrape_all] Filtré (école): {job.get('company')} — {job.get('title')}")
                 continue
-            # Filtre post-scraping par mots-clés pour les sources qui ne supportent pas la recherche textuelle (ex: LBA)
+            # Filtre post-scraping par mots-clés pour LBA (pas de recherche textuelle côté API)
+            # On exclut les mots génériques pour ne pas sur-filtrer
             if job.get("source") == "la_bonne_alternance" and kw_lower:
-                searchable = f"{job.get('title','')} {job.get('description','')} {job.get('company','')}".lower()
-                kw_words = [w for w in kw_lower.split() if len(w) > 3]
+                _GENERIC = {"alternance", "stage", "bts", "licence", "master", "bachelor", "but"}
+                searchable = f"{job.get('title','')} {job.get('description','')}".lower()
+                kw_words = [w for w in kw_lower.split() if len(w) > 3 and w not in _GENERIC]
                 if kw_words and not any(w in searchable for w in kw_words):
                     continue
             # Harmoniser le contract_type avec ce qui a été demandé
