@@ -57,6 +57,7 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
         location,
         ft_client_id=settings.FT_CLIENT_ID,
         ft_client_secret=settings.FT_CLIENT_SECRET,
+        lba_api_key=settings.LBA_API_KEY,
     )
     new_jobs_added = 0
     for job_data in scraped:

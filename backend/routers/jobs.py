@@ -130,6 +130,7 @@ async def trigger_scrape(
         keywords, location,
         ft_client_id=settings.FT_CLIENT_ID,
         ft_client_secret=settings.FT_CLIENT_SECRET,
+        lba_api_key=settings.LBA_API_KEY,
         target_company=company,
     )
     result_jobs: list[Job] = []

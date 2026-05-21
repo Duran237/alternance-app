@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     FT_CLIENT_ID: str = ""
     FT_CLIENT_SECRET: str = ""
+    LBA_API_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

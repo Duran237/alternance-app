@@ -479,62 +479,75 @@ async def scrape_france_travail(
     return jobs
 
 
-# ── 6. La Bonne Alternance (API officielle gouvernementale) ──────────────────
-async def scrape_lba(keywords: str, location: str = "France") -> list[dict]:
+# ── 6. La Bonne Alternance (nouvelle API v1 — api.apprentissage.beta.gouv.fr) ──
+async def scrape_lba(keywords: str, location: str = "France", api_key: str = "") -> list[dict]:
+    """
+    Nouvelle API LBA (l'ancienne /api/v1/jobsEtFormations est décommissionnée HTTP 410).
+    Endpoint : GET https://api.apprentissage.beta.gouv.fr/api/job/v1/search
+    Nécessite une clé Bearer (LBA_API_KEY). Sans clé, la source est ignorée.
+    """
+    if not api_key:
+        logger.info("[LBA] LBA_API_KEY non configurée — source ignorée")
+        return []
+
     jobs = []
     loc_key = location.lower()
     coords = CITY_COORDS.get(loc_key, CITY_COORDS["france"])
-    insee = CITY_INSEE.get(loc_key, CITY_INSEE["france"])
     lat, lon = coords
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
-                "https://labonnealternance.apprentissage.beta.gouv.fr/api/v1/jobsEtFormations",
+                "https://api.apprentissage.beta.gouv.fr/api/job/v1/search",
                 params={
-                    "caller": "alternance_app",
-                    "insee": insee,
                     "latitude": lat,
                     "longitude": lon,
                     "radius": 60,
                     "romes": _ROME_IT,
                 },
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Accept": "application/json",
+                },
             )
-            if resp.status_code != 200:
+            if resp.status_code not in (200, 206):
                 logger.warning(f"[LBA] Status {resp.status_code}: {resp.text[:200]}")
                 return []
             data = resp.json()
 
-        jobs_data = data.get("jobs") or {}
-        raw_jobs = []
-        for key in ("peJobs", "partnerJobs", "matchas"):
-            section = jobs_data.get(key) or {}
-            results = section.get("results") or []
-            raw_jobs.extend(results)
+        raw_jobs = data.get("jobs") or []
 
         for offer in raw_jobs[:30]:
-            title = (offer.get("title") or "").strip()
+            offer_obj = offer.get("offer") or {}
+            title = (offer_obj.get("title") or "").strip()
             if not title:
                 continue
-            company_obj = offer.get("company") or {}
-            company = company_obj.get("name") or "Entreprise"
-            if not company or company == "":
-                company = "Entreprise"
-            place_obj = offer.get("place") or {}
-            offer_loc = place_obj.get("city") or place_obj.get("address") or location
-            desc_raw = offer.get("job", {}).get("description") or offer.get("description") or ""
+
+            workplace = offer.get("workplace") or {}
+            company = (
+                workplace.get("name")
+                or workplace.get("brand")
+                or workplace.get("legal_name")
+                or "Entreprise"
+            )
+
+            loc_obj = workplace.get("location") or {}
+            offer_loc = loc_obj.get("address") or location
+
+            desc_raw = offer_obj.get("description") or ""
             desc = _re.sub(r"<[^>]+>", " ", str(desc_raw)).strip()
 
-            # URL: direct url field, or contact.url, or build from id
-            url = (
-                offer.get("url")
-                or (offer.get("contact") or {}).get("url")
-                or ""
-            )
-            if not url and offer.get("id"):
-                url = f"https://labonnealternance.apprentissage.beta.gouv.fr/recherche-emploi?display=list&page=1&job={offer['id']}"
+            apply_obj = offer.get("apply") or {}
+            url = apply_obj.get("url") or ""
+
+            identifier = offer.get("identifier") or {}
+            if not url and identifier.get("id"):
+                url = f"https://labonnealternance.apprentissage.beta.gouv.fr/recherche-emploi?display=list&page=1&job={identifier['id']}"
             if not url:
                 continue
+
+            all_skills = (offer_obj.get("desired_skills") or []) + (offer_obj.get("to_be_acquired_skills") or [])
+            skills = [s for s in all_skills if isinstance(s, str)]
 
             jobs.append({
                 "title": title,
@@ -542,7 +555,7 @@ async def scrape_lba(keywords: str, location: str = "France") -> list[dict]:
                 "location": offer_loc,
                 "salary": None,
                 "description": desc[:1200],
-                "skills_required": _extract_skills(desc),
+                "skills_required": skills or _extract_skills(desc),
                 "url": url,
                 "source": "la_bonne_alternance",
                 "contract_type": "Alternance",
@@ -796,6 +809,7 @@ async def scrape_all(
     location: str = "France",
     ft_client_id: str = "",
     ft_client_secret: str = "",
+    lba_api_key: str = "",
     target_company: str = "",
 ) -> list[dict]:
     """Lance tous les scrapers en parallèle et déduplique par URL."""
@@ -823,7 +837,7 @@ async def scrape_all(
 
     # APIs légères (parallèle — pas de navigateur)
     api_results = await asyncio.gather(
-        scrape_lba(search_kw, location),
+        scrape_lba(search_kw, location, lba_api_key),
         scrape_letudiant(search_kw, location),
         scrape_france_travail(keywords, location, ft_client_id, ft_client_secret, target_company),
         scrape_smartrecruiters(keywords, target_company),
