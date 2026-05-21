@@ -8,6 +8,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from models.application import Application
 from models.job import Job
 from models.night_report import NightReport
@@ -51,7 +52,12 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
     location = user.target_city or "France"
 
     # Scraping
-    scraped = await scrape_all(keywords, location)
+    scraped = await scrape_all(
+        keywords,
+        location,
+        ft_client_id=settings.FT_CLIENT_ID,
+        ft_client_secret=settings.FT_CLIENT_SECRET,
+    )
     new_jobs_added = 0
     for job_data in scraped:
         existing = await db.execute(select(Job).where(Job.url == job_data["url"]))
@@ -100,21 +106,25 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
         if existing_app.scalar_one_or_none():
             continue
 
-        cover_letter = await generate_cover_letter(
-            user_name=user.name,
-            user_skills=user.skills or [],
-            job_title=job.title,
-            company=job.company,
-            job_description=job.description or "",
-            cv_text=user.cv_text or "",
-            target_roles=user.target_roles or [],
-            target_city=user.target_city or "",
-            github_url=user.github_url or "",
-            linkedin_url=user.linkedin_url or "",
-            school=user.school or "",
-            education_level=user.education_level or "",
-            gender=user.gender or "",
-        )
+        try:
+            cover_letter = await generate_cover_letter(
+                user_name=user.name,
+                user_skills=user.skills or [],
+                job_title=job.title,
+                company=job.company,
+                job_description=job.description or "",
+                cv_text=user.cv_text or "",
+                target_roles=user.target_roles or [],
+                target_city=user.target_city or "",
+                github_url=user.github_url or "",
+                linkedin_url=user.linkedin_url or "",
+                school=user.school or "",
+                education_level=user.education_level or "",
+                gender=user.gender or "",
+            )
+        except Exception as e:
+            logger.error(f"[NightJob] Génération lettre échouée pour {job.title} ({job.company}): {e}")
+            cover_letter = None
 
         draft = Application(
             user_id=user.id,

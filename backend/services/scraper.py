@@ -96,6 +96,44 @@ CITY_INSEE: dict[str, str] = {
 PLAYWRIGHT_TIMEOUT = 25000
 
 
+_SCHOOL_PATTERNS = [
+    # Établissements d'enseignement explicites
+    r"\bécole\b", r"\becole\b",
+    r"\buniversité\b", r"\buniversite\b",
+    r"\blycée\b", r"\blycee\b",
+    r"\biut\b",
+    r"\bcfa\b",  # centre de formation d'apprentis
+    r"\bgreta\b",
+    r"\bafpa\b",
+    r"\bcampus\b.*\bformation\b",
+    r"\bcentre de formation\b",
+    r"\binstitut de formation\b",
+    r"\bécole supérieure\b", r"\becole superieure\b",
+    r"\bécole nationale\b", r"\becole nationale\b",
+    r"\bécole d[e']\b", r"\becole d[e']\b",
+    r"\buniversité de\b", r"\buniversite de\b",
+    r"\bacadémie\b", r"\bacademie\b",
+    r"\bconservatoire\b",
+    r"\bcollège\b", r"\bcollege\b",
+    r"\benseignement supérieur\b",
+    r"\bformation professionnelle\b",
+    r"\borganisme de formation\b",
+    r"\bétablissement d[e']\b",
+]
+
+import re as _re
+_SCHOOL_RE = _re.compile(
+    "|".join(_SCHOOL_PATTERNS),
+    _re.IGNORECASE | _re.UNICODE,
+)
+
+
+def _is_educational_institution(company: str, title: str = "") -> bool:
+    """Retourne True si l'offre provient d'une école/établissement d'enseignement."""
+    text = f"{company} {title}".lower()
+    return bool(_SCHOOL_RE.search(text))
+
+
 def _extract_skills(text: str) -> list[str]:
     text_lower = text.lower()
     return [kw for kw in TECH_KEYWORDS if kw in text_lower]
@@ -484,8 +522,6 @@ async def scrape_lba(keywords: str, location: str = "France") -> list[dict]:
             place_obj = offer.get("place") or {}
             offer_loc = place_obj.get("city") or place_obj.get("address") or location
             desc_raw = offer.get("job", {}).get("description") or offer.get("description") or ""
-            # Strip HTML tags if present
-            import re as _re
             desc = _re.sub(r"<[^>]+>", " ", str(desc_raw)).strip()
 
             # URL: direct url field, or contact.url, or build from id
@@ -800,10 +836,14 @@ async def scrape_all(
     for batch in pw_results + api_batches:
         for job in batch:
             url = job.get("url", "")
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                merged.append(job)
+            if not url or url in seen_urls:
+                continue
+            if _is_educational_institution(job.get("company", ""), job.get("title", "")):
+                logger.debug(f"[scrape_all] Filtré (école): {job.get('company')} — {job.get('title')}")
+                continue
+            seen_urls.add(url)
+            merged.append(job)
 
     sources = set(j["source"] for j in merged)
-    logger.info(f"[scrape_all] {len(merged)} offres uniques | sources : {sources}")
+    logger.info(f"[scrape_all] {len(merged)} offres uniques (entreprises uniquement) | sources : {sources}")
     return merged
