@@ -325,7 +325,7 @@ async def scrape_hellowork(keywords: str, location: str = "France", company: str
             raw = title_el.get_text("|", strip=True)
             parts = [p.strip() for p in raw.split("|") if p.strip()]
             title = parts[0] if parts else "Poste non précisé"
-            company = parts[1] if len(parts) > 1 else "Entreprise"
+            job_company = parts[1] if len(parts) > 1 else "Entreprise"
 
             href = title_el.get("href", "")
             full_url = _full_url(href, "https://www.hellowork.com")
@@ -335,7 +335,7 @@ async def scrape_hellowork(keywords: str, location: str = "France", company: str
             desc = card.get_text(" ", strip=True)
             jobs.append({
                 "title": title,
-                "company": company,
+                "company": job_company,
                 "location": location_el.get_text(strip=True) if location_el else location,
                 "salary": salary_el.get_text(strip=True) if salary_el else None,
                 "description": desc[:1200],

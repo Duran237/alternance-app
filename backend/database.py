@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
@@ -21,7 +22,7 @@ async def init_db():
     from models import user, job, application, notification  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Ajout des colonnes manquantes sans casser les données existantes
+        # Ajout des colonnes manquantes (compatibilité SQLite et PostgreSQL)
         new_columns = [
             ("users", "gender", "VARCHAR"),
             ("users", "school", "VARCHAR"),
@@ -29,10 +30,13 @@ async def init_db():
         ]
         for table, column, col_type in new_columns:
             try:
-                await conn.execute(
-                    __import__("sqlalchemy").text(
+                if settings.is_postgres:
+                    await conn.execute(text(
                         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"
-                    )
-                )
+                    ))
+                else:
+                    await conn.execute(text(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                    ))
             except Exception:
-                pass
+                pass  # Colonne déjà présente
