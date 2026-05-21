@@ -120,6 +120,7 @@ _SCHOOL_PATTERNS = [
     r"\bformation professionnelle\b",
     r"\borganisme de formation\b",
     r"\bétablissement d[e']\b",
+    r"formations?\s*$",  # nom d'entreprise qui se termine par "Formation(s)"
 ]
 
 import re as _re
