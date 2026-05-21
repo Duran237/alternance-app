@@ -113,6 +113,7 @@ _SCHOOL_PATTERNS = [
     r"\bécole d[e']\b", r"\becole d[e']\b",
     r"\buniversité de\b", r"\buniversite de\b",
     r"\bacadémie\b", r"\bacademie\b",
+    r"\bacademy\b",
     r"\bconservatoire\b",
     r"\bcollège\b", r"\bcollege\b",
     r"\benseignement supérieur\b",
