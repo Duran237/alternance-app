@@ -123,6 +123,7 @@ async def trigger_scrape(
     keywords: str = Query("alternance cybersécurité"),
     location: str = Query("France"),
     company: str = Query(""),
+    contract_type: str = Query("Alternance"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -132,6 +133,7 @@ async def trigger_scrape(
         ft_client_secret=settings.FT_CLIENT_SECRET,
         lba_api_key=settings.LBA_API_KEY,
         target_company=company,
+        contract_type=contract_type,
     )
     result_jobs: list[Job] = []
 

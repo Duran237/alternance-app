@@ -263,12 +263,13 @@ async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_secon
 
 
 # ── 1. HelloWork ─────────────────────────────────────────────────────────────
-async def scrape_hellowork(keywords: str, location: str = "France", company: str = "") -> list[dict]:
+async def scrape_hellowork(keywords: str, location: str = "France", company: str = "", contract_type: str = "Alternance") -> list[dict]:
     jobs = []
     html = ""
     kw_full = f"{keywords} {company}".strip() if company else keywords
     query = kw_full.replace(" ", "+")
-    url = f"https://www.hellowork.com/fr-fr/emploi/recherche.html?k={query}&l={location}&c=Alternance"
+    hw_contract = "Stage" if "stage" in contract_type.lower() else "Alternance"
+    url = f"https://www.hellowork.com/fr-fr/emploi/recherche.html?k={query}&l={location}&c={hw_contract}"
 
     try:
         html = await _pw_get_html(url, wait_selector='[data-cy="serpCard"]')
@@ -322,14 +323,15 @@ async def scrape_hellowork(keywords: str, location: str = "France", company: str
 
 
 # ── 2. Indeed ────────────────────────────────────────────────────────────────
-async def scrape_indeed(keywords: str, location: str = "France", company: str = "") -> list[dict]:
+async def scrape_indeed(keywords: str, location: str = "France", company: str = "", contract_type: str = "Alternance") -> list[dict]:
     jobs = []
     html = ""
     query = keywords.replace(" ", "+")
+    ct_kw = "stage" if "stage" in contract_type.lower() else "alternance"
     if company:
-        url = f"https://fr.indeed.com/jobs?q={query}+alternance&l={location}&rbc={company.replace(' ', '+')}&rbt=EMPLOYER&sort=date"
+        url = f"https://fr.indeed.com/jobs?q={query}+{ct_kw}&l={location}&rbc={company.replace(' ', '+')}&rbt=EMPLOYER&sort=date"
     else:
-        url = f"https://fr.indeed.com/jobs?q={query}+alternance&l={location}&sort=date"
+        url = f"https://fr.indeed.com/jobs?q={query}+{ct_kw}&l={location}&sort=date"
 
     try:
         html = await _pw_get_html(url, wait_selector=".job_seen_beacon, .jobsearch-ResultsList")
@@ -383,15 +385,16 @@ async def scrape_indeed(keywords: str, location: str = "France", company: str = 
 
 
 # ── 3. Welcome to the Jungle ─────────────────────────────────────────────────
-async def scrape_wttj(keywords: str, location: str = "France") -> list[dict]:
+async def scrape_wttj(keywords: str, location: str = "France", contract_type: str = "Alternance") -> list[dict]:
     jobs = []
     html = ""
     query = keywords.replace(" ", "%20")
     loc = location if location.lower() != "france" else "France"
+    wttj_ct = "Stage" if "stage" in contract_type.lower() else "Alternance"
     url = (
         f"https://www.welcometothejungle.com/fr/jobs"
         f"?query={query}&aroundQuery={loc}"
-        f"&refinementList[contract_type_names][0]=Alternance"
+        f"&refinementList[contract_type_names][0]={wttj_ct}"
     )
 
     try:
@@ -444,11 +447,13 @@ async def scrape_wttj(keywords: str, location: str = "France") -> list[dict]:
 
 
 # ── 4. APEC ─────────────────────────────────────────────────────────────────
-async def scrape_apec(keywords: str, location: str = "France") -> list[dict]:
+async def scrape_apec(keywords: str, location: str = "France", contract_type: str = "Alternance") -> list[dict]:
     jobs = []
     html = ""
     query = keywords.replace(" ", "+")
-    url = f"https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles={query}&typeContrat=85"
+    # APEC: 85=Alternance, 102=Stage (codes internes APEC)
+    apec_ct = "102" if "stage" in contract_type.lower() else "85"
+    url = f"https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles={query}&typeContrat={apec_ct}"
 
     try:
         html = await _pw_get_html(url, wait_selector=".job-item, .result-item, [class*='offer']")
@@ -761,13 +766,14 @@ async def scrape_letudiant(keywords: str, location: str = "France") -> list[dict
 
 
 # ── 8. JobTeaser (offres directes des entreprises partenaires) ────────────────
-async def scrape_jobteaser(keywords: str, location: str = "France") -> list[dict]:
+async def scrape_jobteaser(keywords: str, location: str = "France", contract_type: str = "Alternance") -> list[dict]:
     jobs = []
     html = ""
     query = keywords.replace(" ", "+")
+    jt_ct = "internship" if "stage" in contract_type.lower() else "apprenticeship"
     url = (
         f"https://www.jobteaser.com/fr/job-offers"
-        f"?contract_type[]=apprenticeship&search={query}"
+        f"?contract_type[]={jt_ct}&search={query}"
     )
 
     try:
@@ -927,17 +933,17 @@ async def scrape_all(
     ft_client_secret: str = "",
     lba_api_key: str = "",
     target_company: str = "",
+    contract_type: str = "Alternance",
 ) -> list[dict]:
     """Lance tous les scrapers en parallèle et déduplique par URL."""
 
-    # Si une entreprise cible est spécifiée, on l'ajoute aux mots-clés pour tous les scrapers
     search_kw = f"{keywords} {target_company}".strip() if target_company else keywords
 
     # Scrapers Playwright (séquentiel — un seul navigateur à la fois)
     pw_results = []
     for scraper in [scrape_hellowork, scrape_wttj, scrape_apec, scrape_jobteaser]:
         try:
-            result = await scraper(search_kw, location)
+            result = await scraper(search_kw, location, contract_type=contract_type)
             pw_results.append(result)
         except Exception as e:
             logger.error(f"[scrape_all] {scraper.__name__}: {e}")
@@ -945,7 +951,7 @@ async def scrape_all(
 
     # Indeed séparé : supporte le filtre entreprise natif
     try:
-        indeed_result = await scrape_indeed(search_kw, location, target_company)
+        indeed_result = await scrape_indeed(search_kw, location, target_company, contract_type=contract_type)
         pw_results.append(indeed_result)
     except Exception as e:
         logger.error(f"[scrape_all] scrape_indeed: {e}")
@@ -963,6 +969,7 @@ async def scrape_all(
 
     seen_urls: set[str] = set()
     merged: list[dict] = []
+    kw_lower = keywords.lower()
 
     for batch in pw_results + api_batches:
         for job in batch:
@@ -972,9 +979,18 @@ async def scrape_all(
             if _is_educational_institution(job.get("company", ""), job.get("title", "")):
                 logger.debug(f"[scrape_all] Filtré (école): {job.get('company')} — {job.get('title')}")
                 continue
+            # Filtre post-scraping par mots-clés pour les sources qui ne supportent pas la recherche textuelle (ex: LBA)
+            if job.get("source") == "la_bonne_alternance" and kw_lower:
+                searchable = f"{job.get('title','')} {job.get('description','')} {job.get('company','')}".lower()
+                kw_words = [w for w in kw_lower.split() if len(w) > 3]
+                if kw_words and not any(w in searchable for w in kw_words):
+                    continue
+            # Harmoniser le contract_type avec ce qui a été demandé
+            if contract_type:
+                job["contract_type"] = contract_type
             seen_urls.add(url)
             merged.append(job)
 
     sources = set(j["source"] for j in merged)
-    logger.info(f"[scrape_all] {len(merged)} offres uniques (entreprises uniquement) | sources : {sources}")
+    logger.info(f"[scrape_all] {len(merged)} offres uniques ({contract_type}) | sources : {sources}")
     return merged

@@ -253,7 +253,7 @@ export default function Jobs() {
     setJobs([])
     setSourcesFound([])
     try {
-      const res = await jobsApi.scrape(kw, loc || 'France', cmp)
+      const res = await jobsApi.scrape(kw, loc || 'France', cmp, contractFilter)
       const results = res.data
       setJobs(results)
       const sources = [...new Set(results.map(j => j.source).filter(Boolean))]

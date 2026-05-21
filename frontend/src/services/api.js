@@ -56,7 +56,7 @@ export const jobsApi = {
   list: (params) => api.get('/jobs/', { params }),
   getById: (id) => api.get(`/jobs/${id}`),
   recommended: () => api.get('/jobs/recommended'),
-  scrape: (keywords, location, company = '') => api.post('/jobs/scrape', null, { params: { keywords, location, company } }),
+  scrape: (keywords, location, company = '', contractType = 'Alternance') => api.post('/jobs/scrape', null, { params: { keywords, location, company, contract_type: contractType } }),
 }
 
 export const applicationsApi = {
