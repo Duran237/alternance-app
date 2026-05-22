@@ -16,7 +16,7 @@ from models.notification import Notification
 from models.user import User
 from services.ai_service import generate_cover_letter
 from services.matching import compute_match_score
-from services.scraper import scrape_all
+from services.scraper import scrape_all, _is_educational_institution
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,8 @@ async def run_night_job_for_user(user: User, db: AsyncSession) -> dict:
     compatible = []
     for job in all_jobs:
         if job.id in already_applied_ids:
+            continue
+        if _is_educational_institution(job.company or "", job.title or ""):
             continue
         score = compute_match_score(user, job)
         if score >= MIN_MATCH_SCORE:

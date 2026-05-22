@@ -11,7 +11,7 @@ from database import get_db
 from models.job import Job
 from models.user import User
 from services.matching import compute_match_score
-from services.scraper import scrape_all
+from services.scraper import scrape_all, _is_educational_institution
 from utils.security import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -63,6 +63,8 @@ async def list_jobs(
 
     out = []
     for job in jobs:
+        if _is_educational_institution(job.company or "", job.title or ""):
+            continue
         score = compute_match_score(current_user, job)
         job_dict = {
             "id": job.id,
@@ -94,6 +96,8 @@ async def recommended_jobs(
 
     scored = []
     for job in jobs:
+        if _is_educational_institution(job.company or "", job.title or ""):
+            continue
         score = compute_match_score(current_user, job)
         if score >= 30:
             scored.append((score, job))
