@@ -57,8 +57,8 @@ TECH_KEYWORDS = [
     "microservices", "api",
 ]
 
-# Codes ROME informatique/réseau/cybersécurité pour La Bonne Alternance
-_ROME_IT = "M1805,M1806,M1801,M1802,M1810"
+# Codes ROME informatique/réseau/cybersécurité/support pour La Bonne Alternance
+_ROME_IT = "M1801,M1802,M1803,M1804,M1805,M1806,M1807,M1810"
 
 CITY_COORDS: dict[str, tuple[float, float]] = {
     "paris": (48.8566, 2.3522),
@@ -940,7 +940,6 @@ async def scrape_all(
 
     seen_urls: set[str] = set()
     merged: list[dict] = []
-    kw_lower = keywords.lower()
 
     for batch in pw_results + api_batches:
         for job in batch:
@@ -950,14 +949,6 @@ async def scrape_all(
             if _is_educational_institution(job.get("company", "")):
                 logger.debug(f"[scrape_all] Filtré (établissement): {job.get('company')}")
                 continue
-            # Filtre post-scraping par mots-clés pour LBA (pas de recherche textuelle côté API)
-            # On exclut les mots génériques pour ne pas sur-filtrer
-            if job.get("source") == "la_bonne_alternance" and kw_lower:
-                _GENERIC = {"alternance", "stage", "bts", "licence", "master", "bachelor", "but"}
-                searchable = f"{job.get('title','')} {job.get('description','')}".lower()
-                kw_words = [w for w in kw_lower.split() if len(w) > 3 and w not in _GENERIC]
-                if kw_words and not any(w in searchable for w in kw_words):
-                    continue
             # Harmoniser le contract_type avec ce qui a été demandé
             if contract_type:
                 job["contract_type"] = contract_type

@@ -44,18 +44,17 @@ async def list_jobs(
     cutoff = datetime.utcnow() - timedelta(days=7)
     stmt = select(Job).where(Job.scraped_at >= cutoff)
 
-    filters = []
     if q:
         words = [w.strip() for w in q.split() if len(w.strip()) > 2]
-        for word in words:
-            term = f"%{word}%"
-            filters.append(or_(Job.title.ilike(term), Job.description.ilike(term), Job.company.ilike(term)))
+        if words:
+            # OR : au moins un mot-clé doit apparaître dans le titre ou la description
+            kw_filters = [
+                or_(Job.title.ilike(f"%{w}%"), Job.description.ilike(f"%{w}%"))
+                for w in words
+            ]
+            stmt = stmt.where(or_(*kw_filters))
     if location:
-        filters.append(Job.location.ilike(f"%{location}%"))
-
-    if filters:
-        from sqlalchemy import and_
-        stmt = stmt.where(and_(*filters))
+        stmt = stmt.where(Job.location.ilike(f"%{location}%"))
 
     stmt = stmt.order_by(Job.scraped_at.desc()).limit(limit)
     result = await db.execute(stmt)
