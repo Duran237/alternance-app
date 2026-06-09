@@ -165,39 +165,9 @@ _SCHOOL_RE = _re.compile(
 )
 
 
-def _is_educational_institution(company: str, title: str = "") -> bool:
-    """Retourne True si l'offre provient d'une école/établissement d'enseignement."""
-    text = f"{company} {title}".lower()
-    return bool(_SCHOOL_RE.search(text))
-
-
-# ── Filtre rôles de formation/enseignement ────────────────────────────────────
-_TRAINING_ROLE_PATTERNS = [
-    r"\bformateur\b", r"\bformatrice\b",
-    r"\benseignant\b", r"\benseignante\b",
-    r"\bprofesseur\b",
-    r"\binstructeur\b", r"\binstructrice\b",
-    r"\bpédagogu[e]s?\b",
-    r"\bcoordinateur\s+pédagogique\b",
-    r"\bresponsable\s+pédagogique\b",
-    r"\bingénieur\s+pédagogique\b",
-    r"\bconcepteur\s+(?:de\s+)?formation\b",
-    r"\bcharg[eé]\s+de\s+formation\b",
-    r"\bconseiller\s+(?:en\s+)?formation\b",
-    r"\banimateur\s+(?:de\s+)?formation\b",
-    r"\bresponsable\s+(?:de\s+(?:la\s+)?)?formation\b",
-    r"\bcoach\s+(?:de\s+)?formation\b",
-    r"\bmaître\s+(?:de\s+)?conférences?\b",
-]
-_TRAINING_ROLE_RE = _re.compile(
-    "|".join(_TRAINING_ROLE_PATTERNS),
-    _re.IGNORECASE | _re.UNICODE,
-)
-
-
-def _is_training_role(title: str) -> bool:
-    """Retourne True si le poste est un rôle de formateur/enseignant (pas une alternance tech)."""
-    return bool(_TRAINING_ROLE_RE.search(title))
+def _is_educational_institution(company: str) -> bool:
+    """Retourne True si le NOM DE L'ENTREPRISE est un établissement scolaire/de formation."""
+    return bool(_SCHOOL_RE.search(company))
 
 
 def _extract_skills(text: str) -> list[str]:
@@ -1057,11 +1027,8 @@ async def scrape_all(
             url = job.get("url", "")
             if not url or url in seen_urls:
                 continue
-            if _is_educational_institution(job.get("company", ""), job.get("title", "")):
-                logger.debug(f"[scrape_all] Filtré (école): {job.get('company')} — {job.get('title')}")
-                continue
-            if _is_training_role(job.get("title", "")):
-                logger.debug(f"[scrape_all] Filtré (rôle formation): {job.get('title')}")
+            if _is_educational_institution(job.get("company", "")):
+                logger.debug(f"[scrape_all] Filtré (établissement): {job.get('company')}")
                 continue
             # Filtre post-scraping par mots-clés pour LBA (pas de recherche textuelle côté API)
             # On exclut les mots génériques pour ne pas sur-filtrer

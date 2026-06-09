@@ -25,16 +25,13 @@ async def get_db():
 async def _purge_school_jobs(conn) -> None:
     """Supprime de la DB les offres d'établissements scolaires déjà enregistrées."""
     try:
-        from services.scraper import _is_educational_institution, _is_training_role
-        result = await conn.execute(text("SELECT id, company, title FROM jobs"))
+        from services.scraper import _is_educational_institution
+        result = await conn.execute(text("SELECT id, company FROM jobs"))
         rows = result.fetchall()
-        ids_to_delete = [
-            r[0] for r in rows
-            if _is_educational_institution(r[1] or "", r[2] or "") or _is_training_role(r[2] or "")
-        ]
+        ids_to_delete = [r[0] for r in rows if _is_educational_institution(r[1] or "")]
         if ids_to_delete:
             await conn.execute(text(f"DELETE FROM jobs WHERE id IN ({','.join(str(i) for i in ids_to_delete)})"))
-            logger.info(f"[DB] Purge (écoles + rôles formation) : {len(ids_to_delete)} offres supprimées")
+            logger.info(f"[DB] Purge établissements : {len(ids_to_delete)} offres supprimées")
     except Exception as e:
         logger.debug(f"[DB] Purge ignorée : {e}")
 
