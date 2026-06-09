@@ -719,85 +719,6 @@ async def scrape_lba(keywords: str, location: str = "France", api_key: str = "")
     return jobs
 
 
-# ── 7. L'Etudiant Emploi (API interne tRPC) ───────────────────────────────────
-async def scrape_letudiant(keywords: str, location: str = "France") -> list[dict]:
-    jobs = []
-    ALTERNANCE_CONTRACT_ID = "627d164572f9aba0dccf93e7"
-    MEDIA_ID = "66229d6f878dc9f2bf192806"
-
-    import json as _json
-
-    input_data = _json.dumps({
-        "0": {
-            "json": {
-                "limit": 30,
-                "media_id": MEDIA_ID,
-                "language": "fr",
-                "pertinence": True,
-                "contracts": [ALTERNANCE_CONTRACT_ID],
-                "direction": "forward",
-                "search": keywords,
-            }
-        }
-    })
-
-    try:
-        async with httpx.AsyncClient(timeout=20, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json",
-            "Referer": "https://jobs-stages.letudiant.fr/",
-        }) as client:
-            resp = await client.get(
-                "https://jobs-stages.letudiant.fr/api/trpc/jobInfinite.getMediaJobsInfinite",
-                params={"batch": "1", "input": input_data},
-            )
-            if resp.status_code != 200:
-                logger.warning(f"[Etudiant] Status {resp.status_code}: {resp.text[:200]}")
-                return []
-            data = resp.json()
-
-        results = []
-        if isinstance(data, list) and data:
-            results = data[0].get("result", {}).get("data", {}).get("json", {}).get("items", [])
-
-        for offer in results[:25]:
-            title = offer.get("name", "").strip()
-            if not title:
-                continue
-            company = offer.get("companyName") or "Entreprise"
-            loc_obj = offer.get("location") or {}
-            if isinstance(loc_obj, dict):
-                offer_loc = loc_obj.get("city") or loc_obj.get("administrative_area_department") or location
-            else:
-                offer_loc = str(loc_obj) if loc_obj else location
-            desc = str(offer.get("aiContent") or offer.get("description") or "")
-            public_id = offer.get("public_id") or offer.get("id") or ""
-            url = f"https://jobs-stages.letudiant.fr/offres/emploi-{public_id}" if public_id else ""
-            if not url:
-                continue
-            salary_obj = offer.get("salary")
-            salary = str(salary_obj) if salary_obj else None
-
-            jobs.append({
-                "title": title,
-                "company": company,
-                "location": offer_loc,
-                "salary": salary,
-                "description": desc[:1200],
-                "skills_required": _extract_skills(desc),
-                "url": url,
-                "source": "letudiant",
-                "contract_type": "Alternance",
-                "level": None,
-            })
-
-    except Exception as e:
-        logger.error(f"[Etudiant] {e}")
-
-    logger.info(f"[Etudiant] {len(jobs)} offres")
-    return jobs
-
-
 # ── 8. JobTeaser (offres directes des entreprises partenaires) ────────────────
 async def scrape_jobteaser(keywords: str, location: str = "France", contract_type: str = "Alternance") -> list[dict]:
     jobs = []
@@ -1011,7 +932,6 @@ async def scrape_all(
     # APIs légères (parallèle — pas de navigateur)
     api_results = await asyncio.gather(
         scrape_lba(search_kw, location, lba_api_key),
-        scrape_letudiant(search_kw, location),
         scrape_france_travail(keywords, location, ft_client_id, ft_client_secret, target_company),
         scrape_smartrecruiters(keywords, target_company),
         return_exceptions=True,
