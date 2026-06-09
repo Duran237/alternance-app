@@ -171,6 +171,35 @@ def _is_educational_institution(company: str, title: str = "") -> bool:
     return bool(_SCHOOL_RE.search(text))
 
 
+# ── Filtre rôles de formation/enseignement ────────────────────────────────────
+_TRAINING_ROLE_PATTERNS = [
+    r"\bformateur\b", r"\bformatrice\b",
+    r"\benseignant\b", r"\benseignante\b",
+    r"\bprofesseur\b",
+    r"\binstructeur\b", r"\binstructrice\b",
+    r"\bpédagogu[e]s?\b",
+    r"\bcoordinateur\s+pédagogique\b",
+    r"\bresponsable\s+pédagogique\b",
+    r"\bingénieur\s+pédagogique\b",
+    r"\bconcepteur\s+(?:de\s+)?formation\b",
+    r"\bcharg[eé]\s+de\s+formation\b",
+    r"\bconseiller\s+(?:en\s+)?formation\b",
+    r"\banimateur\s+(?:de\s+)?formation\b",
+    r"\bresponsable\s+(?:de\s+(?:la\s+)?)?formation\b",
+    r"\bcoach\s+(?:de\s+)?formation\b",
+    r"\bmaître\s+(?:de\s+)?conférences?\b",
+]
+_TRAINING_ROLE_RE = _re.compile(
+    "|".join(_TRAINING_ROLE_PATTERNS),
+    _re.IGNORECASE | _re.UNICODE,
+)
+
+
+def _is_training_role(title: str) -> bool:
+    """Retourne True si le poste est un rôle de formateur/enseignant (pas une alternance tech)."""
+    return bool(_TRAINING_ROLE_RE.search(title))
+
+
 def _extract_skills(text: str) -> list[str]:
     text_lower = text.lower()
     return [kw for kw in TECH_KEYWORDS if kw in text_lower]
@@ -865,21 +894,39 @@ async def scrape_jobteaser(keywords: str, location: str = "France", contract_typ
 # ── 9. SmartRecruiters — offres directes d'entreprises ───────────────────────
 # Entreprises françaises connues utilisant SmartRecruiters (API publique)
 _SR_COMPANIES: dict[str, str] = {
-    "Decathlon": "Decathlon",
-    "Saint-Gobain": "SaintGobain",
+    # Grands groupes IT/Tech
     "Sopra Steria": "SopraSteria",
     "Worldline": "Worldline",
-    "Michelin": "Michelin",
-    "Renault": "Renault",
-    "Stellantis": "Stellantis",
     "Schneider Electric": "SchneiderElectric",
-    "Air France": "AirFrance",
     "Dassault Systèmes": "DassaultSystemes",
     "Amadeus": "Amadeus",
     "CGI": "CGI",
     "Atos": "Atos",
     "Ericsson": "Ericsson",
     "Nokia": "Nokia",
+    "Capgemini": "Capgemini",
+    "Accenture": "Accenture",
+    "Thales": "Thales",
+    "Safran": "Safran",
+    "Orange": "Orange",
+    "Bouygues Telecom": "BouyguesTelecom",
+    "SFR": "SFR",
+    "ENGIE": "ENGIE",
+    "TotalEnergies": "TotalEnergies",
+    "Naval Group": "NavalGroup",
+    # PME / ETI françaises IT & cybersécurité
+    "Devoteam": "Devoteam",
+    "Inetum": "Inetum",
+    "Wavestone": "Wavestone",
+    "Econocom": "Econocom",
+    "Sii Group": "SiiGroup",
+    "Aubay": "Aubay",
+    "Scaleway": "Scaleway",
+    "OVHcloud": "OVHcloud",
+    "Axway": "Axway",
+    "Stormshield": "Stormshield",
+    "Wallix": "Wallix",
+    "Tehtris": "Tehtris",
 }
 
 # Contrats SmartRecruiters correspondant à l'alternance
@@ -1012,6 +1059,9 @@ async def scrape_all(
                 continue
             if _is_educational_institution(job.get("company", ""), job.get("title", "")):
                 logger.debug(f"[scrape_all] Filtré (école): {job.get('company')} — {job.get('title')}")
+                continue
+            if _is_training_role(job.get("title", "")):
+                logger.debug(f"[scrape_all] Filtré (rôle formation): {job.get('title')}")
                 continue
             # Filtre post-scraping par mots-clés pour LBA (pas de recherche textuelle côté API)
             # On exclut les mots génériques pour ne pas sur-filtrer
