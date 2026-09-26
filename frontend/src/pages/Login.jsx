@@ -18,7 +18,12 @@ export default function Login() {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erreur de connexion')
+      if (err.response) {
+        const detail = err.response.data?.detail
+        setError(typeof detail === 'string' ? detail : `Erreur ${err.response.status}`)
+      } else {
+        setError(`Erreur réseau: ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }

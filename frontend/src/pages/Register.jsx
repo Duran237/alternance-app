@@ -18,7 +18,12 @@ export default function Register() {
       await signup(name, email, password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erreur lors de la création du compte')
+      if (err.response) {
+        const detail = err.response.data?.detail
+        setError(typeof detail === 'string' ? detail : `Erreur ${err.response.status}`)
+      } else {
+        setError(`Erreur réseau: ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }
