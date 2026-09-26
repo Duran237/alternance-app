@@ -26,10 +26,10 @@ api.interceptors.response.use(
 export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (email, password) => {
-    const form = new FormData()
-    form.append('username', email)
-    form.append('password', password)
-    return api.post('/auth/login', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const params = new URLSearchParams()
+    params.append('username', email)
+    params.append('password', password)
+    return api.post('/auth/login', params)
   },
   verifyEmail: (email, code) => api.post('/auth/verify-email', { email, code }),
   resendOtp: (email) => api.post('/auth/resend-otp', { email, code: '' }),
