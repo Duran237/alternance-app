@@ -35,21 +35,20 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const res = await authApi.login(email, password)
+    const userData = { id: res.data.user_id, name: res.data.name, email: res.data.email }
     localStorage.setItem('token', res.data.access_token)
-    const profileRes = await userApi.getMe()
-    setUser(profileRes.data)
-    localStorage.setItem('user', JSON.stringify(profileRes.data))
-    return profileRes.data
+    localStorage.setItem('user', JSON.stringify(userData))
+    setUser(userData)
+    return userData
   }
 
   const register = async (name, email, password) => {
     const res = await authApi.register({ name, email, password })
+    const userData = { id: res.data.user_id, name: res.data.name, email: res.data.email }
     localStorage.setItem('token', res.data.access_token)
-    const profileRes = await userApi.getMe()
-    setUser(profileRes.data)
-    localStorage.setItem('user', JSON.stringify(profileRes.data))
-    // Retourne l'email pour redirection vers la vérification OTP
-    return { ...profileRes.data, email }
+    localStorage.setItem('user', JSON.stringify(userData))
+    setUser(userData)
+    return userData
   }
 
   const logout = () => {
