@@ -27,6 +27,7 @@ async def analyze_cv(cv_text: str) -> dict:
         return {"message": "Configurez ANTHROPIC_API_KEY pour activer l'analyse IA du CV."}
 
     import anthropic
+    import json
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
     prompt = f"""Analyse ce CV et extrais en JSON :
@@ -44,16 +45,18 @@ CV :
 
 Réponds uniquement avec le JSON valide, sans markdown."""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    import json
     try:
-        return json.loads(message.content[0].text)
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        try:
+            return json.loads(message.content[0].text)
+        except Exception:
+            return {"raw": message.content[0].text}
     except Exception:
-        return {"raw": message.content[0].text}
+        return {"message": "Analyse IA indisponible — remplis ton profil manuellement."}
 
 
 async def generate_cover_letter(
@@ -108,6 +111,30 @@ Cordialement,
 {user_name}"""
 
     import anthropic
+
+    def _template() -> str:
+        skills_str = ", ".join(user_skills[:5]) if user_skills else "Python, Linux, cybersécurité"
+        school_line = f" à {school}" if school else ""
+        if gender == "homme":
+            student_word, passionne, convaincu, motive, curieux = "Étudiant", "Passionné", "convaincu", "Motivé", "curieux"
+        elif gender == "femme":
+            student_word, passionne, convaincu, motive, curieux = "Étudiante", "Passionnée", "convaincue", "Motivée", "curieuse"
+        else:
+            student_word, passionne, convaincu, motive, curieux = "Étudiant(e)", "Passionné(e)", "convaincu(e)", "Motivé(e)", "curieux(se)"
+        edu_line = f"{student_word} en {education_level}" if education_level else student_word
+        return f"""Madame, Monsieur,
+
+{edu_line}{school_line}, je me permets de vous soumettre ma candidature pour le poste de {job_title} au sein de {company} dans le cadre d'une alternance.
+
+{passionne} par l'informatique et les nouvelles technologies, je dispose de compétences en {skills_str}. Mon parcours académique et mes projets personnels m'ont permis de développer une expertise technique solide et un sens de la rigueur indispensable dans ce domaine.
+
+Je suis {convaincu} que {company} représente un environnement stimulant pour développer mes compétences et contribuer à vos projets. {motive} et {curieux}, je m'engage à apporter mon implication totale à votre équipe.
+
+Dans l'attente d'un entretien, je reste disponible pour tout renseignement complémentaire.
+
+Cordialement,
+{user_name}"""
+
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
     gender_label = {"homme": "Homme", "femme": "Femme"}.get(gender, "Non précisé")
@@ -167,12 +194,15 @@ Instructions :
 - Ne mets pas de date, adresse ou objet
 - IMPORTANT : texte brut uniquement, aucun markdown"""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return _strip_markdown(message.content[0].text)
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return _strip_markdown(message.content[0].text)
+    except Exception:
+        return _template()
 
 
 async def generate_application_email(user_name: str, job_title: str, company: str) -> str:
@@ -200,9 +230,21 @@ Cordialement,
 Inclure objet et corps. Ton professionnel.
 IMPORTANT : Réponds en texte brut uniquement. N'utilise aucun markdown (pas de #, **, *, _, etc.)."""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return _strip_markdown(message.content[0].text)
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return _strip_markdown(message.content[0].text)
+    except Exception:
+        return f"""Objet : Candidature alternance – {job_title} – {user_name}
+
+Madame, Monsieur,
+
+Veuillez trouver ci-joint mon CV et ma lettre de motivation pour le poste de {job_title} au sein de {company}.
+
+Disponible pour un entretien à votre convenance.
+
+Cordialement,
+{user_name}"""
