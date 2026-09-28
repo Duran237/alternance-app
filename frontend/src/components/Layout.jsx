@@ -1,13 +1,14 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  LayoutDashboard, Briefcase, BarChart2, User, LogOut, Search, Moon
+  LayoutDashboard, Briefcase, BarChart2, User, LogOut, Search, Moon, Building2
 } from 'lucide-react'
 import clsx from 'clsx'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/jobs', icon: Search, label: 'Offres' },
+  { to: '/spontaneous', icon: Building2, label: 'Spontanée' },
   { to: '/applications', icon: Briefcase, label: 'Candidatures' },
   { to: '/automation', icon: Moon, label: 'Mode nuit' },
   { to: '/stats', icon: BarChart2, label: 'Stats' },

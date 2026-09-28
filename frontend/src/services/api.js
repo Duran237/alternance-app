@@ -15,9 +15,13 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+      const url = err.config?.url || ''
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register')
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
@@ -29,7 +33,9 @@ export const authApi = {
     const params = new URLSearchParams()
     params.append('username', email)
     params.append('password', password)
-    return api.post('/auth/login', params)
+    return api.post('/auth/login', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
   },
   verifyEmail: (email, code) => api.post('/auth/verify-email', { email, code }),
   resendOtp: (email) => api.post('/auth/resend-otp', { email, code: '' }),
@@ -81,6 +87,20 @@ export const automationApi = {
   getDrafts: () => api.get('/automation/drafts'),
   validateDraft: (id) => api.post(`/automation/drafts/${id}/validate`),
   discardDraft: (id) => api.delete(`/automation/drafts/${id}`),
+}
+
+export function parseApiError(err) {
+  if (!err.response) return 'Erreur réseau : vérifiez votre connexion internet'
+  const { status, data } = err.response
+  const detail = data?.detail
+  if (typeof detail === 'string') return detail
+  if (status === 401) return 'Email ou mot de passe incorrect'
+  if (status === 403) return 'Accès refusé'
+  if (status === 404) return 'Compte introuvable'
+  if (status === 409) return 'Cet email est déjà utilisé'
+  if (status === 422) return 'Données invalides — vérifiez vos informations'
+  if (status >= 500) return 'Erreur serveur, réessayez dans quelques instants'
+  return `Une erreur est survenue (code ${status})`
 }
 
 export default api

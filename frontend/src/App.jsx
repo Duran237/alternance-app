@@ -11,6 +11,7 @@ import Jobs from './pages/Jobs'
 import Applications from './pages/Applications'
 import Stats from './pages/Stats'
 import Automation from './pages/Automation'
+import Spontaneous from './pages/Spontaneous'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/applications" element={<Applications />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/automation" element={<Automation />} />
+        <Route path="/spontaneous" element={<Spontaneous />} />
       </Route>
     </Routes>
   )

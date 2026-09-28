@@ -127,7 +127,7 @@ CITY_INSEE: dict[str, str] = {
     "france": "75056",
 }
 
-PLAYWRIGHT_TIMEOUT = 25000
+PLAYWRIGHT_TIMEOUT = 15000
 
 
 _SCHOOL_PATTERNS = [
@@ -597,6 +597,9 @@ async def scrape_france_travail(
             desc = offer.get("description", "") or ""
             company = (offer.get("entreprise") or {}).get("nom") or "Entreprise"
             offer_id = offer.get("id", "")
+            # Utiliser l'URL de l'offre originale si disponible, sinon l'URL de détail
+            url_origine = (offer.get("origineOffre") or {}).get("urlOrigine") or ""
+            offer_url = url_origine or f"https://candidat.francetravail.fr/offres/recherche/detail/{offer_id}"
             jobs.append({
                 "title": offer.get("intitule", ""),
                 "company": company,
@@ -604,7 +607,7 @@ async def scrape_france_travail(
                 "salary": (offer.get("salaire") or {}).get("libelle"),
                 "description": desc[:1200],
                 "skills_required": _extract_skills(desc),
-                "url": f"https://www.francetravail.fr/offres/recherche/detail/{offer_id}",
+                "url": offer_url,
                 "source": "france_travail",
                 "contract_type": "Alternance",
                 "level": None,
@@ -911,23 +914,22 @@ async def scrape_all(
 
     search_kw = f"{keywords} {target_company}".strip() if target_company else keywords
 
-    # Scrapers Playwright (séquentiel — un seul navigateur à la fois)
-    pw_results = []
-    for scraper in [scrape_hellowork, scrape_wttj, scrape_apec, scrape_jobteaser]:
+    # Scrapers Playwright en parallèle avec timeout global de 45s
+    async def _safe(coro, name):
         try:
-            result = await scraper(search_kw, location, contract_type=contract_type)
-            pw_results.append(result)
+            return await asyncio.wait_for(coro, timeout=45)
         except Exception as e:
-            logger.error(f"[scrape_all] {scraper.__name__}: {e}")
-            pw_results.append([])
+            logger.error(f"[scrape_all] {name}: {e}")
+            return []
 
-    # Indeed séparé : supporte le filtre entreprise natif
-    try:
-        indeed_result = await scrape_indeed(search_kw, location, target_company, contract_type=contract_type)
-        pw_results.append(indeed_result)
-    except Exception as e:
-        logger.error(f"[scrape_all] scrape_indeed: {e}")
-        pw_results.append([])
+    pw_tasks = await asyncio.gather(
+        _safe(scrape_hellowork(search_kw, location, contract_type=contract_type), "hellowork"),
+        _safe(scrape_wttj(search_kw, location, contract_type=contract_type), "wttj"),
+        _safe(scrape_apec(search_kw, location, contract_type=contract_type), "apec"),
+        _safe(scrape_jobteaser(search_kw, location, contract_type=contract_type), "jobteaser"),
+        _safe(scrape_indeed(search_kw, location, target_company, contract_type=contract_type), "indeed"),
+    )
+    pw_results = list(pw_tasks)
 
     # APIs légères (parallèle — pas de navigateur)
     api_results = await asyncio.gather(

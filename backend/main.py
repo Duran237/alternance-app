@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_db
 from routers import auth, users, cv, jobs, applications, stats
-from routers import automation
+from routers import automation, spontaneous
 from services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ app.include_router(jobs.router)
 app.include_router(applications.router)
 app.include_router(stats.router)
 app.include_router(automation.router)
+app.include_router(spontaneous.router)
 
 
 @app.get("/")

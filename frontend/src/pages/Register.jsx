@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../contexts/AuthContext'
+import { parseApiError } from '../services/api'
 import { Briefcase, AlertCircle } from 'lucide-react'
 
 export default function Register() {
@@ -18,12 +19,7 @@ export default function Register() {
       await signup(name, email, password)
       navigate('/dashboard')
     } catch (err) {
-      if (err.response) {
-        const detail = err.response.data?.detail
-        setError(typeof detail === 'string' ? detail : `Erreur ${err.response.status}`)
-      } else {
-        setError(`Erreur réseau: ${err.message}`)
-      }
+      setError(parseApiError(err))
     } finally {
       setLoading(false)
     }

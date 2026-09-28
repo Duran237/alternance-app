@@ -12,12 +12,10 @@ const EDU_KEYWORD_MAP = {
 }
 
 function buildProfileKeywords(user) {
-  const parts = []
-  if (user.target_roles?.length) parts.push(...user.target_roles.slice(0, 3))
-  if (user.skills?.length && parts.length < 3) parts.push(...user.skills.slice(0, 3))
-  const eduKw = EDU_KEYWORD_MAP[user.education_level]
-  if (eduKw) parts.push(eduKw)
-  return parts.join(' ') || 'alternance informatique'
+  // Un seul rôle ciblé pour maximiser les résultats de recherche
+  if (user.target_roles?.length) return user.target_roles[0]
+  if (user.skills?.length) return `alternance ${user.skills[0]}`
+  return 'alternance informatique'
 }
 
 function CoverLetterModal({ application, onClose }) {
@@ -233,6 +231,7 @@ export default function Jobs() {
       EDU_KEYWORD_MAP[user.education_level] || '',
     ].filter(Boolean).join(' · ')
     setProfileLabel(label)
+    handleSearchWithKeywords(kw, loc, '')
   }, [])
 
   const handleSearchFromProfile = async () => {
