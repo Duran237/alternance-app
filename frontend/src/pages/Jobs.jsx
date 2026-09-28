@@ -278,10 +278,17 @@ export default function Jobs() {
   const [modalApp, setModalApp] = useState(null)
 
   const handleApply = async (jobId) => {
-    const res = await applicationsApi.create({ job_id: jobId, generate_letter: true })
-    setAppliedIds(prev => new Set([...prev, jobId]))
-    setApplyResults(prev => ({ ...prev, [jobId]: res.data.email_sent_to || null }))
-    setModalApp(res.data)
+    try {
+      const res = await applicationsApi.create({ job_id: jobId, generate_letter: true })
+      setAppliedIds(prev => new Set([...prev, jobId]))
+      setApplyResults(prev => ({ ...prev, [jobId]: res.data.email_sent_to || null }))
+      setModalApp(res.data)
+    } catch (err) {
+      const detail = err?.response?.data?.detail
+      setScrapeMsg(detail === 'Candidature déjà envoyée pour cette offre'
+        ? 'Tu as déjà postulé à cette offre.'
+        : 'Erreur lors de la candidature — réessaie dans un instant.')
+    }
   }
 
   return (
