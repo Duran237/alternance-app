@@ -1,5 +1,7 @@
 import logging
-import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from config import settings
 
@@ -8,28 +10,54 @@ logger = logging.getLogger(__name__)
 FROM_EMAIL = "Alternance App <onboarding@resend.dev>"
 
 
-def _can_send() -> bool:
+def _can_send_resend() -> bool:
     return bool(settings.RESEND_API_KEY and settings.RESEND_API_KEY.startswith("re_"))
 
 
-def _send_email(to: str, subject: str, html: str) -> bool:
-    if not _can_send():
-        logger.warning(f"[Email] RESEND_API_KEY non configuré — email non envoyé à {to}")
-        return False
+def _can_send_smtp() -> bool:
+    return bool(settings.SMTP_USER and settings.SMTP_PASSWORD)
+
+
+def _send_via_smtp(to: str, subject: str, html: str) -> bool:
     try:
-        import resend
-        resend.api_key = settings.RESEND_API_KEY
-        resend.Emails.send({
-            "from": FROM_EMAIL,
-            "to": [to],
-            "subject": subject,
-            "html": html,
-        })
-        logger.info(f"[Email] Envoyé à {to} : {subject}")
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = settings.SMTP_USER
+        msg["To"] = to
+        msg.attach(MIMEText(html, "html", "utf-8"))
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.sendmail(settings.SMTP_USER, [to], msg.as_string())
+        logger.info(f"[Email/SMTP] Envoyé à {to} : {subject}")
         return True
     except Exception as e:
-        logger.error(f"[Email] Erreur : {e}")
+        logger.error(f"[Email/SMTP] Erreur : {e}")
         return False
+
+
+def _send_email(to: str, subject: str, html: str) -> bool:
+    if _can_send_resend():
+        try:
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": FROM_EMAIL,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+            })
+            logger.info(f"[Email/Resend] Envoyé à {to} : {subject}")
+            return True
+        except Exception as e:
+            logger.warning(f"[Email/Resend] Échec, tentative SMTP : {e}")
+
+    if _can_send_smtp():
+        return _send_via_smtp(to, subject, html)
+
+    logger.warning(f"[Email] Aucune méthode configurée — email non envoyé à {to}")
+    return False
 
 
 def send_otp_email(to_email: str, user_name: str, otp_code: str) -> bool:
