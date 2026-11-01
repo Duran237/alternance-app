@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     ANTHROPIC_API_KEY: str = ""
     RESEND_API_KEY: str = ""
+    HUNTER_API_KEY: str = ""
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_HOST: str = "smtp.gmail.com"

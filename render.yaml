@@ -18,6 +18,8 @@ services:
         value: ./uploads
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: HUNTER_API_KEY
+        sync: false
       - key: SMTP_USER
         value: alte.smart@gmail.com
       - key: SMTP_PASSWORD
