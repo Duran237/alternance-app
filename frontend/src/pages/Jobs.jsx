@@ -335,6 +335,8 @@ export default function Jobs() {
           >
             <option value="Alternance">Alternance</option>
             <option value="Stage">Stage</option>
+            <option value="CDI">CDI</option>
+            <option value="CDD">CDD</option>
             <option value="">Tous types</option>
           </select>
           <button

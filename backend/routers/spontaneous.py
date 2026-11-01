@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 from config import settings
 from models.user import User
+from services.email_finder import find_hr_emails
+from services.email_service import send_real_application
 from utils.security import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -64,12 +66,21 @@ class CompanyOut(BaseModel):
     sector: Optional[str] = None
     sector_label: Optional[str] = None
     size_label: Optional[str] = None
+    probable_emails: Optional[List[str]] = None
 
 
 class CoverLetterRequest(BaseModel):
     company_name: str
     company_address: Optional[str] = None
     sector_label: Optional[str] = None
+
+
+class SendApplicationRequest(BaseModel):
+    company_name: str
+    company_address: Optional[str] = None
+    sector_label: Optional[str] = None
+    recruiter_email: str
+    cover_letter: str
 
 
 async def _fetch_naf(client: httpx.AsyncClient, naf: str, dept: Optional[str]) -> list:
@@ -137,7 +148,22 @@ async def find_pme_companies(
                 size_label=TRANCHE_LABELS.get(tranche),
             ))
 
-    return companies[:limit]
+    result = companies[:limit]
+
+    # Chercher emails probables en parallèle (max 10 entreprises pour ne pas trop ralentir)
+    async def _enrich(c: CompanyOut) -> CompanyOut:
+        try:
+            emails_data = await find_hr_emails(c.name, c.siret)
+            c.probable_emails = [e["email"] for e in emails_data]
+        except Exception:
+            c.probable_emails = []
+        return c
+
+    enriched = await asyncio.gather(*[_enrich(c) for c in result[:10]])
+    for i, c in enumerate(enriched):
+        result[i] = c
+
+    return result
 
 
 def _template_letter(name: str, company: str, sector: str, roles: str, skills: str, education: str, school: str) -> str:
@@ -211,3 +237,22 @@ Règles strictes :
         school=school,
     )
     return {"cover_letter": letter, "company": data.company_name, "source": "template"}
+
+
+@router.post("/send-application")
+async def send_spontaneous_application(
+    data: SendApplicationRequest,
+    current_user: User = Depends(get_current_user),
+):
+    sent = send_real_application(
+        recruiter_email=data.recruiter_email,
+        user_name=current_user.name,
+        user_email=current_user.email,
+        job_title=f"Candidature spontanée – {data.sector_label or 'Informatique'}",
+        company=data.company_name,
+        cover_letter=data.cover_letter,
+        cv_path=current_user.cv_path or "",
+    )
+    if not sent:
+        raise HTTPException(status_code=503, detail="Envoi email impossible — vérifie la configuration SMTP")
+    return {"sent": True, "to": data.recruiter_email, "company": data.company_name}
