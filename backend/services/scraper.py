@@ -127,7 +127,7 @@ CITY_INSEE: dict[str, str] = {
     "france": "75056",
 }
 
-PLAYWRIGHT_TIMEOUT = 15000
+PLAYWRIGHT_TIMEOUT = 8000
 
 
 _SCHOOL_PATTERNS = [
@@ -264,7 +264,7 @@ HTML:
 
 
 # ── Playwright helper ─────────────────────────────────────────────────────────
-async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_seconds: float = 3.0) -> str:
+async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_seconds: float = 1.5) -> str:
     """Charge une page avec Playwright et retourne le HTML rendu."""
     try:
         from playwright.async_api import async_playwright
@@ -917,7 +917,7 @@ async def scrape_all(
     # Scrapers Playwright en parallèle avec timeout global de 45s
     async def _safe(coro, name):
         try:
-            return await asyncio.wait_for(coro, timeout=45)
+            return await asyncio.wait_for(coro, timeout=20)
         except Exception as e:
             logger.error(f"[scrape_all] {name}: {e}")
             return []

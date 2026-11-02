@@ -130,6 +130,21 @@ async def trigger_scrape(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Servir le cache si des résultats récents (< 2h) existent pour cette recherche
+    cache_cutoff = datetime.utcnow() - timedelta(hours=2)
+    cache_stmt = select(Job).where(Job.scraped_at >= cache_cutoff)
+    if keywords:
+        words = [w.strip() for w in keywords.split() if len(w.strip()) > 2]
+        if words:
+            kw_filters = [or_(Job.title.ilike(f"%{w}%"), Job.description.ilike(f"%{w}%")) for w in words]
+            cache_stmt = cache_stmt.where(or_(*kw_filters))
+    if location and location.lower() != "france":
+        cache_stmt = cache_stmt.where(Job.location.ilike(f"%{location}%"))
+    cache_result = await db.execute(cache_stmt.limit(1))
+    if cache_result.scalar_one_or_none():
+        # Cache chaud — retourner les résultats DB sans re-scraper
+        return await list_jobs(q=keywords, location=location, limit=50, current_user=current_user, db=db)
+
     scraped = await scrape_all(
         keywords, location,
         ft_client_id=settings.FT_CLIENT_ID,
