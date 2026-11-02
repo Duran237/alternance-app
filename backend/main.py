@@ -10,6 +10,7 @@ from config import settings
 from database import init_db
 from routers import auth, users, cv, jobs, applications, stats
 from routers import automation, spontaneous
+from routers.jobs import cleanup_old_jobs
 from services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
     start_scheduler()
+    # Nettoyage initial des offres expirées au démarrage
+    from database import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        await cleanup_old_jobs(db)
     # Debug SMTP config
     smtp_user_env = os.environ.get('SMTP_USER', 'NON_DÉFINI')
     smtp_pass_env = os.environ.get('SMTP_PASSWORD', 'NON_DÉFINI')

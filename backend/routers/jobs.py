@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
@@ -15,6 +15,18 @@ from services.scraper import scrape_all, _is_educational_institution
 from utils.security import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+RETENTION_HOURS = 48
+
+
+async def cleanup_old_jobs(db: AsyncSession) -> int:
+    cutoff = datetime.utcnow() - timedelta(hours=RETENTION_HOURS)
+    result = await db.execute(delete(Job).where(Job.scraped_at < cutoff))
+    await db.commit()
+    deleted = result.rowcount
+    if deleted:
+        logger.info(f"[Cleanup] {deleted} offres supprimées (> {RETENTION_HOURS}h)")
+    return deleted
 
 
 class JobOut(BaseModel):
@@ -41,7 +53,7 @@ async def list_jobs(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = datetime.utcnow() - timedelta(hours=RETENTION_HOURS)
     stmt = select(Job).where(Job.scraped_at >= cutoff)
 
     if q:
@@ -89,7 +101,7 @@ async def recommended_jobs(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = datetime.utcnow() - timedelta(hours=RETENTION_HOURS)
     result = await db.execute(select(Job).where(Job.scraped_at >= cutoff).order_by(Job.scraped_at.desc()).limit(200))
     jobs = result.scalars().all()
 
@@ -130,6 +142,9 @@ async def trigger_scrape(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Nettoyage automatique des offres > 48h
+    await cleanup_old_jobs(db)
+
     # Servir le cache si des résultats récents (< 2h) existent pour cette recherche
     cache_cutoff = datetime.utcnow() - timedelta(hours=2)
     cache_stmt = select(Job).where(Job.scraped_at >= cache_cutoff)
