@@ -914,24 +914,7 @@ async def scrape_all(
 
     search_kw = f"{keywords} {target_company}".strip() if target_company else keywords
 
-    # Scrapers Playwright en parallèle avec timeout global de 45s
-    async def _safe(coro, name):
-        try:
-            return await asyncio.wait_for(coro, timeout=20)
-        except Exception as e:
-            logger.error(f"[scrape_all] {name}: {e}")
-            return []
-
-    pw_tasks = await asyncio.gather(
-        _safe(scrape_hellowork(search_kw, location, contract_type=contract_type), "hellowork"),
-        _safe(scrape_wttj(search_kw, location, contract_type=contract_type), "wttj"),
-        _safe(scrape_apec(search_kw, location, contract_type=contract_type), "apec"),
-        _safe(scrape_jobteaser(search_kw, location, contract_type=contract_type), "jobteaser"),
-        _safe(scrape_indeed(search_kw, location, target_company, contract_type=contract_type), "indeed"),
-    )
-    pw_results = list(pw_tasks)
-
-    # APIs légères (parallèle — pas de navigateur)
+    # Uniquement les APIs légères — pas de Playwright (trop gourmand en mémoire sur free tier)
     api_results = await asyncio.gather(
         scrape_lba(search_kw, location, lba_api_key),
         scrape_france_travail(keywords, location, ft_client_id, ft_client_secret, target_company),
@@ -943,7 +926,7 @@ async def scrape_all(
     seen_urls: set[str] = set()
     merged: list[dict] = []
 
-    for batch in pw_results + api_batches:
+    for batch in api_batches:
         for job in batch:
             url = job.get("url", "")
             if not url or url in seen_urls:
