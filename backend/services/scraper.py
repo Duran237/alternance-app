@@ -127,7 +127,7 @@ CITY_INSEE: dict[str, str] = {
     "france": "75056",
 }
 
-PLAYWRIGHT_TIMEOUT = 8000
+PLAYWRIGHT_TIMEOUT = 20000
 
 
 _SCHOOL_PATTERNS = [
@@ -264,7 +264,7 @@ HTML:
 
 
 # ── Playwright helper ─────────────────────────────────────────────────────────
-async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_seconds: float = 1.5) -> str:
+async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_seconds: float = 1.5, wait_until: str = "load") -> str:
     """Charge une page avec Playwright et retourne le HTML rendu."""
     try:
         from playwright.async_api import async_playwright
@@ -279,7 +279,7 @@ async def _pw_get_html(url: str, wait_selector: Optional[str] = None, wait_secon
                 ),
             )
             page = await ctx.new_page()
-            await page.goto(url, wait_until="networkidle", timeout=PLAYWRIGHT_TIMEOUT)
+            await page.goto(url, wait_until=wait_until, timeout=PLAYWRIGHT_TIMEOUT)
             if wait_selector:
                 try:
                     await page.wait_for_selector(wait_selector, timeout=10000)
@@ -367,35 +367,42 @@ async def scrape_indeed(keywords: str, location: str = "France", company: str = 
         url = f"https://fr.indeed.com/jobs?q={query}+{ct_kw}&l={location}&sort=date"
 
     try:
-        html = await _pw_get_html(url, wait_selector=".job_seen_beacon, .jobsearch-ResultsList")
+        html = await _pw_get_html(url, wait_selector="a[data-jk]")
         if not html:
             return []
 
         soup = BeautifulSoup(html, "lxml")
-        cards = soup.select(".job_seen_beacon") or soup.select(".result")
+        # Indeed: chaque lien a[data-jk] est un titre d'offre
+        title_links = soup.select("a[data-jk]")
 
-        for card in cards[:20]:
-            title_el = card.select_one("h2.jobTitle span[title], h2.jobTitle span, [data-testid='jobTitle']")
-            company_el = card.select_one("[data-testid='company-name'], .companyName")
-            location_el = card.select_one("[data-testid='text-location'], .companyLocation")
-            salary_el = card.select_one(".salary-snippet-container, .salaryText")
-            link_el = card.select_one("a[data-jk]") or card.select_one("a[href*='/viewjob']")
-
-            if not title_el:
+        for link in title_links[:20]:
+            jk = link.get("data-jk", "")
+            if not jk:
+                continue
+            title = link.get_text(strip=True)
+            if not title:
                 continue
 
-            job_id = link_el.get("data-jk", "") if link_el else ""
-            href = link_el.get("href", "") if link_el else ""
-            if job_id:
-                full_url = f"https://fr.indeed.com/viewjob?jk={job_id}"
-            elif href:
-                full_url = _full_url(href, "https://fr.indeed.com")
-            else:
-                continue
+            # Remonter dans l'arbre pour trouver le conteneur avec entreprise/lieu
+            node = link
+            company_el = location_el = salary_el = None
+            for _ in range(12):
+                node = node.parent
+                if not node:
+                    break
+                if not company_el:
+                    company_el = node.select_one('[data-testid="company-name"]')
+                if not location_el:
+                    location_el = node.select_one('[data-testid="text-location"]')
+                if not salary_el:
+                    salary_el = node.select_one('[class*="salary"]')
+                if company_el and location_el:
+                    break
 
-            desc = card.get_text(" ", strip=True)
+            full_url = f"https://fr.indeed.com/viewjob?jk={jk}"
+            desc = node.get_text(" ", strip=True) if node else ""
             jobs.append({
-                "title": title_el.get_text(strip=True),
+                "title": title,
                 "company": company_el.get_text(strip=True) if company_el else "Entreprise",
                 "location": location_el.get_text(strip=True) if location_el else location,
                 "salary": salary_el.get_text(strip=True) if salary_el else None,
@@ -409,9 +416,6 @@ async def scrape_indeed(keywords: str, location: str = "France", company: str = 
 
     except Exception as e:
         logger.error(f"[Indeed] {e}")
-
-    if not jobs and html:
-        jobs = await _ai_extract_jobs(html, "https://fr.indeed.com", "indeed")
 
     logger.info(f"[Indeed] {len(jobs)} offres")
     return jobs
@@ -916,7 +920,7 @@ async def scrape_all(
 
     async def _safe(coro, name):
         try:
-            return await asyncio.wait_for(coro, timeout=20)
+            return await asyncio.wait_for(coro, timeout=60)
         except Exception as e:
             logger.error(f"[scrape_all] {name}: {e}")
             return []

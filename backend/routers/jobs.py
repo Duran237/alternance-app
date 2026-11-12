@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -15,6 +16,7 @@ from services.scraper import scrape_all, _is_educational_institution
 from utils.security import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+logger = logging.getLogger(__name__)
 
 RETENTION_HOURS = 48
 
