@@ -925,16 +925,23 @@ async def scrape_all(
             logger.error(f"[scrape_all] {name}: {e}")
             return []
 
-    # Scrapers Playwright : 2 en parallèle max pour rester sous 512MB RAM (free tier)
-    batch1 = await asyncio.gather(
-        _safe(scrape_hellowork(search_kw, location, contract_type=contract_type), "hellowork"),
-        _safe(scrape_wttj(search_kw, location, contract_type=contract_type), "wttj"),
-    )
-    batch2 = await asyncio.gather(
-        _safe(scrape_indeed(search_kw, location, target_company, contract_type=contract_type), "indeed"),
-        _safe(scrape_apec(search_kw, location, contract_type=contract_type), "apec"),
-    )
-    pw_batches = list(batch1) + list(batch2)
+    # Scrapers Playwright : désactivés si DISABLE_PLAYWRIGHT=true (Render free tier OOM)
+    import os as _os
+    playwright_disabled = _os.environ.get("DISABLE_PLAYWRIGHT", "").lower() in ("1", "true", "yes")
+
+    if playwright_disabled:
+        logger.info("[scrape_all] Playwright désactivé (DISABLE_PLAYWRIGHT=true)")
+        pw_batches = [[], [], [], []]
+    else:
+        batch1 = await asyncio.gather(
+            _safe(scrape_hellowork(search_kw, location, contract_type=contract_type), "hellowork"),
+            _safe(scrape_wttj(search_kw, location, contract_type=contract_type), "wttj"),
+        )
+        batch2 = await asyncio.gather(
+            _safe(scrape_indeed(search_kw, location, target_company, contract_type=contract_type), "indeed"),
+            _safe(scrape_apec(search_kw, location, contract_type=contract_type), "apec"),
+        )
+        pw_batches = list(batch1) + list(batch2)
 
     # APIs légères (pas de navigateur — toutes en parallèle)
     api_results = await asyncio.gather(
